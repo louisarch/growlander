@@ -16,6 +16,7 @@ namespace {
 constexpr int CellCount = WorldWidth * WorldHeight;
 constexpr int MaxInventory = 1000000;
 constexpr int MaxCounter = 100000000;
+constexpr std::size_t MaxDrops = 256;
 constexpr float MaxElapsed = 1000000000.f;
 
 int itemIndex(Item item) { return static_cast<int>(item); }
@@ -91,6 +92,7 @@ void Game::newWorld() {
   inventory[itemIndex(Item::Seed)] = 8;
   progress = Progress{};
   gems = 0;
+  drops_.clear();
   elapsed = 0.f;
   message = "Selamat datang di Growlander!";
   jumpWasDown_ = false;
@@ -243,7 +245,74 @@ void Game::update(float dt, float horizontal, bool jump) {
     player.vy = std::min(30.f, player.vy + Gravity * step);
     moveY(player.vy * step);
   }
+  updateDrops(dt);
   jumpWasDown_ = jump;
+}
+
+void Game::spawnDrop(Item item, int count, float x, float y) {
+  if (count <= 0)
+    return;
+  for (Drop &drop : drops_) {
+    const float dx = drop.x - x;
+    const float dy = drop.y - y;
+    if (drop.item == item && dx * dx + dy * dy <= .75f * .75f) {
+      drop.count = std::min(MaxInventory, drop.count + count);
+      drop.age = 0.f;
+      return;
+    }
+  }
+  if (drops_.size() >= MaxDrops) {
+    // Preserve rewards while keeping the collection bounded by merging into
+    // an existing stack of the same kind, even if it is spatially distant.
+    for (Drop &drop : drops_) {
+      if (drop.item == item) {
+        drop.count = std::min(MaxInventory, drop.count + count);
+        return;
+      }
+    }
+    return;
+  }
+  drops_.push_back(Drop{item, std::min(count, MaxInventory), x, y, 0.f});
+}
+
+void Game::updateDrops(float dt) {
+  constexpr float PickupRadius = 1.5f;
+  constexpr float PickupGrace = .3f;
+  for (std::size_t i = 0; i < drops_.size();) {
+    Drop &drop = drops_[i];
+    drop.age = std::min(MaxElapsed, drop.age + dt);
+    drop.y = std::min(static_cast<float>(WorldHeight) - .12f,
+                      drop.y + 3.f * dt);
+    const int tx = static_cast<int>(std::floor(drop.x));
+    const int belowY = static_cast<int>(std::floor(drop.y + .12f));
+    if (solidAt(tx, belowY))
+      drop.y = static_cast<float>(belowY) - .12f;
+
+    const float closestX =
+        std::clamp(drop.x, player.x, player.x + PlayerWidth);
+    const float closestY =
+        std::clamp(drop.y, player.y, player.y + PlayerHeight);
+    const float dx = drop.x - closestX;
+    const float dy = drop.y - closestY;
+    if (drop.age >= PickupGrace &&
+        dx * dx + dy * dy <= PickupRadius * PickupRadius) {
+      int transferred = 0;
+      if (drop.item == Item::Fist) {
+        transferred = std::min(drop.count, MaxCounter - gems);
+        gems += transferred;
+      } else {
+        int &owned = inventory[itemIndex(drop.item)];
+        transferred = std::min(drop.count, MaxInventory - owned);
+        owned += transferred;
+      }
+      drop.count -= transferred;
+      if (drop.count <= 0) {
+        drops_.erase(drops_.begin() + static_cast<std::ptrdiff_t>(i));
+        continue;
+      }
+    }
+    ++i;
+  }
 }
 
 bool Game::inReach(int x, int y) const {
@@ -267,12 +336,10 @@ bool Game::punch(int x, int y) {
     }
     target = Cell{};
     ++progress.harvested;
-    inventory[itemIndex(Item::Wood)] =
-        std::min(MaxInventory, inventory[itemIndex(Item::Wood)] + 2);
-    inventory[itemIndex(Item::Seed)] =
-        std::min(MaxInventory, inventory[itemIndex(Item::Seed)] + 1);
-    ++gems;
-    message = "Pohon matang dipanen: +2 kayu, +1 benih, +1 permata.";
+    spawnDrop(Item::Wood, 2, x + .5f, y + .5f);
+    spawnDrop(Item::Seed, 1, x + .5f, y + .5f);
+    spawnDrop(Item::Fist, 1, x + .5f, y + .5f);
+    message = "Pohon matang dipanen: hasilnya jatuh ke dunia.";
     return true;
   }
   if (target.tile == Tile::Air) {
@@ -293,8 +360,7 @@ bool Game::punch(int x, int y) {
     const Item drop = tileItem(target.tile);
     target = Cell{};
     ++progress.broken;
-    int &count = inventory[itemIndex(drop)];
-    count = std::min(MaxInventory, count + 1);
+    spawnDrop(drop, 1, x + .5f, y + .5f);
     message = "Blok dihancurkan.";
   } else {
     message = "Pukulan " + std::to_string(target.hits) + "/" +
@@ -399,6 +465,18 @@ bool Game::save(const std::string &path) {
              : (c.growth != -1.f || c.hits >= hardness(c.tile))))
       return fail();
   }
+  if (drops_.size() > MaxDrops)
+    return fail();
+  for (const Drop &drop : drops_) {
+    const int item = itemIndex(drop.item);
+    if ((item != itemIndex(Item::Fist) &&
+         (item <= itemIndex(Item::Fist) || item >= itemIndex(Item::Count))) ||
+        drop.count <= 0 || drop.count > MaxInventory || !finite(drop.x) ||
+        !finite(drop.y) || !finite(drop.age) || drop.x < 0.f ||
+        drop.x >= WorldWidth || drop.y < 0.f || drop.y >= WorldHeight ||
+        drop.age < 0.f || drop.age > MaxElapsed)
+      return fail();
+  }
 
   const std::filesystem::path finalPath(path);
   const std::filesystem::path tempPath(path + ".tmp");
@@ -407,7 +485,7 @@ bool Game::save(const std::string &path) {
     if (!out)
       return fail();
     out.imbue(std::locale::classic());
-    out << "GROWLANDER 1\n"
+    out << "GROWLANDER 2\n"
         << std::setprecision(std::numeric_limits<float>::max_digits10);
     out << "P " << player.x << ' ' << player.y << ' ' << player.vx << ' '
         << player.vy << ' ' << (player.grounded ? 1 : 0) << ' '
@@ -422,6 +500,10 @@ bool Game::save(const std::string &path) {
     for (const Cell &c : cells_)
       out << static_cast<int>(c.tile) << ' ' << c.hits << ' ' << c.growth
           << '\n';
+    out << "D " << drops_.size() << '\n';
+    for (const Drop &drop : drops_)
+      out << itemIndex(drop.item) << ' ' << drop.count << ' ' << drop.x << ' '
+          << drop.y << ' ' << drop.age << '\n';
     out.flush();
     if (!out) {
       out.close();
@@ -461,7 +543,8 @@ bool Game::load(const std::string &path) {
     in.imbue(std::locale::classic());
     std::string magic, tag;
     int version = 0;
-    if (!(in >> magic >> version) || magic != "GROWLANDER" || version != 1)
+    if (!(in >> magic >> version) || magic != "GROWLANDER" ||
+        (version != 1 && version != 2))
       return false;
 
     Player p;
@@ -514,6 +597,26 @@ bool Game::load(const std::string &path) {
       } else if (c.growth != -1.f || c.hits >= hardness(c.tile))
         return false;
     }
+    std::vector<Drop> newDrops;
+    if (version == 2) {
+      std::size_t dropCount = 0;
+      if (!(in >> tag >> dropCount) || tag != "D" || dropCount > MaxDrops)
+        return false;
+      newDrops.reserve(dropCount);
+      for (std::size_t i = 0; i < dropCount; ++i) {
+        int item = 0;
+        Drop drop;
+        if (!(in >> item >> drop.count >> drop.x >> drop.y >> drop.age) ||
+            item < itemIndex(Item::Fist) || item >= itemIndex(Item::Count) ||
+            drop.count <= 0 || drop.count > MaxInventory ||
+            !finite(drop.x) || !finite(drop.y) || !finite(drop.age) ||
+            drop.x < 0.f || drop.x >= WorldWidth || drop.y < 0.f ||
+            drop.y >= WorldHeight || drop.age < 0.f || drop.age > MaxElapsed)
+          return false;
+        drop.item = static_cast<Item>(item);
+        newDrops.push_back(drop);
+      }
+    }
     std::string extra;
     if (in >> extra)
       return false;
@@ -540,6 +643,7 @@ bool Game::load(const std::string &path) {
     elapsed = newElapsed;
     message = std::move(newMessage);
     cells_ = std::move(newCells);
+    drops_ = std::move(newDrops);
     jumpWasDown_ = jumpDown != 0;
     return true;
   } catch (...) {

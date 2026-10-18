@@ -2,6 +2,7 @@
 
 #include <array>
 #include <string>
+#include <vector>
 
 namespace gl {
 
@@ -26,6 +27,15 @@ struct Progress {
   int broken = 0, placed = 0, planted = 0, harvested = 0;
 };
 
+// World-space drop position (center) and time since it appeared. Item::Fist
+// is reserved as the gem-drop sentinel; ordinary drops use a positive count.
+struct Drop {
+  Item item = Item::Fist;
+  int count = 1;
+  float x = 0.f, y = 0.f;
+  float age = 0.f;
+};
+
 class Game {
 public:
   Player player;
@@ -34,6 +44,7 @@ public:
   int gems = 0;
   float elapsed = 0;
   std::string message;
+  const std::vector<Drop> &drops() const { return drops_; }
 
   Game();
   void newWorld();
@@ -50,6 +61,7 @@ public:
 
 private:
   std::array<Cell, WorldWidth * WorldHeight> cells_{};
+  std::vector<Drop> drops_;
   bool jumpWasDown_ = false;
 
   static constexpr float MoveSpeed = 6.f;
@@ -61,6 +73,8 @@ private:
   bool solidAt(int x, int y) const;
   bool overlapsSolid(float x, float y) const;
   bool overlapsPlayer(int x, int y) const;
+  void spawnDrop(Item item, int count, float x, float y);
+  void updateDrops(float dt);
   bool validPlayerState() const;
   void respawn();
   void moveX(float amount);

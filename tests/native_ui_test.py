@@ -69,7 +69,7 @@ with tempfile.TemporaryDirectory(prefix="growlander-native-") as temp:
         key("6")
         current, _ = state()
         x, y = map(float, current["P"][:2])
-        tx, ty = math.floor(x) + 2, 23
+        tx, ty = math.floor(x) + 3, 23
         cx = max(0, min(2720, x * 40 - 512))
         cy = max(0, min(1680, y * 40 - 381.6))
         mousex = round((tx * 40 + 20 - cx) * .8)
@@ -82,7 +82,11 @@ with tempfile.TemporaryDirectory(prefix="growlander-native-") as temp:
         time.sleep(18.3)
         xd("click", "1"); time.sleep(.3)
         harvested, _ = state()
-        check(int(harvested["R"][3]) == 1 and int(harvested["I"][3]) == 22 and int(harvested["I"][5]) == 8, "panen native menambahkan hasil ke inventaris")
+        check(int(harvested["R"][3]) == 1 and int(harvested["D"][0]) > 0, "panen native menghasilkan drop")
+        xd("keydown", "d"); time.sleep(.26); xd("keyup", "d")
+        time.sleep(.4)
+        harvested, _ = state()
+        check(int(harvested["I"][3]) == 22 and int(harvested["I"][5]) == 8, "mendekat mengambil hasil panen native")
         saved_x = float(harvested["P"][0])
         xd("keydown", "d"); time.sleep(.25); xd("keyup", "d")
         key("F9")
@@ -96,7 +100,7 @@ with tempfile.TemporaryDirectory(prefix="growlander-native-") as temp:
         # Quit via native window close; saved world must remain readable.
         process.terminate()
         process.wait(timeout=5)
-        check(save.exists() and "GROWLANDER 1" in save.read_text(), "save tetap tersedia untuk sesi selanjutnya")
+        check(save.exists() and "GROWLANDER 2" in save.read_text(), "save tetap tersedia untuk sesi selanjutnya")
         print(f"{checks} native UI checks, 0 failures")
     finally:
         if process.poll() is None:

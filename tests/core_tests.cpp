@@ -123,8 +123,34 @@ void interactionTests() {
   check(game.punch(10, 24), "second dirt punch registers");
   check(game.cell(10, 24).tile == gl::Tile::Air && game.progress.broken == 1,
         "dirt breaks and increments progress");
-  check(game.inventory[static_cast<int>(gl::Item::Dirt)] == 41,
-        "broken block enters inventory");
+  check(game.inventory[static_cast<int>(gl::Item::Dirt)] == 40 &&
+            game.drops().size() == 1 &&
+            game.drops()[0].item == gl::Item::Dirt &&
+            game.drops()[0].count == 1,
+        "broken block creates a world drop, not an immediate reward");
+  game.update(.2f, 0.f, false);
+  check(game.inventory[static_cast<int>(gl::Item::Dirt)] == 40 &&
+            game.drops().size() == 1,
+        "nearby drop observes grace period before pickup");
+  game.update(.11f, 0.f, false);
+  check(game.inventory[static_cast<int>(gl::Item::Dirt)] == 40 &&
+            game.drops().size() == 1,
+        "pickup grace is measured in capped simulation time");
+  game.update(.1f, 0.f, false);
+  check(game.inventory[static_cast<int>(gl::Item::Dirt)] == 41 &&
+            game.drops().empty(),
+        "nearby drop is automatically picked up after grace period");
+
+  gl::Game farDrop;
+  farDrop.punch(13, 24);
+  farDrop.punch(13, 24);
+  farDrop.update(.1f, 0.f, false);
+  farDrop.update(.1f, 0.f, false);
+  farDrop.update(.1f, 0.f, false);
+  farDrop.update(.1f, 0.f, false);
+  check(farDrop.inventory[static_cast<int>(gl::Item::Dirt)] == 40 &&
+            farDrop.drops().size() == 1,
+        "drop outside pickup radius remains in the world");
 
   gl::Game placing;
   check(placing.place(12, 23, gl::Item::Dirt),
@@ -170,10 +196,18 @@ void farmingTests() {
   check(game.punch(12, 23), "mature plant harvests");
   check(game.cell(12, 23).growth < 0.f && game.progress.harvested == 1,
         "harvest clears plant and records progress");
+  check(game.inventory[static_cast<int>(gl::Item::Wood)] == 20 &&
+            game.inventory[static_cast<int>(gl::Item::Seed)] == 7 &&
+            game.gems == 0 && game.drops().size() == 3,
+        "harvest spawns wood, seed, and gem drops without immediate awards");
+  game.player = gl::Player{11.5f, 22.35f, 0.f, 0.f, true};
+  game.update(.1f, 0.f, false);
+  game.update(.1f, 0.f, false);
+  game.update(.11f, 0.f, false);
   check(game.inventory[static_cast<int>(gl::Item::Wood)] == 22 &&
-            game.inventory[static_cast<int>(gl::Item::Seed)] == 8,
-        "harvest awards wood and seed");
-  check(game.gems == 1, "each harvest awards one gem");
+            game.inventory[static_cast<int>(gl::Item::Seed)] == 8 &&
+            game.gems == 1 && game.drops().empty(),
+        "harvest rewards are granted by actual proximity pickup");
   check(game.punch(12, 24) && game.punch(12, 24),
         "support becomes breakable after harvest");
 }
@@ -189,6 +223,7 @@ void serializationTests() {
   gl::Game source;
   source.place(12, 23, gl::Item::Seed);
   source.update(.37f, 1.f, false);
+  source.punch(10, 24);
   source.punch(10, 24);
   source.message = "round trip message";
   check(source.save(path), "save writes valid state");
@@ -211,6 +246,14 @@ void serializationTests() {
             near(loaded.elapsed, source.elapsed),
         "world, hit and timer state round-trip");
   check(loaded.message == source.message, "message round-trips");
+  check(loaded.drops().size() == source.drops().size() &&
+            !loaded.drops().empty() &&
+            loaded.drops()[0].item == source.drops()[0].item &&
+            loaded.drops()[0].count == source.drops()[0].count &&
+            near(loaded.drops()[0].x, source.drops()[0].x) &&
+            near(loaded.drops()[0].y, source.drops()[0].y) &&
+            near(loaded.drops()[0].age, source.drops()[0].age),
+        "pending world drops round-trip in v2 save");
 
   {
     std::ofstream bad(corruptPath, std::ios::trunc);
@@ -237,6 +280,40 @@ void serializationTests() {
   std::ifstream savedIn(path);
   const std::string validText((std::istreambuf_iterator<char>(savedIn)),
                               std::istreambuf_iterator<char>());
+  {
+    std::string legacy = validText;
+    const auto dropSection = legacy.find("\nD ");
+    check(dropSection != std::string::npos,
+          "v2 save writes pending-drop section");
+    if (dropSection != std::string::npos) {
+      legacy.replace(0, std::string("GROWLANDER 2").size(), "GROWLANDER 1");
+      legacy.erase(dropSection);
+      std::ofstream out(dir / "legacy_v1.save", std::ios::trunc);
+      out << legacy;
+      out.close();
+      gl::Game legacyLoaded;
+      check(legacyLoaded.load((dir / "legacy_v1.save").string()) &&
+                legacyLoaded.drops().empty() &&
+                legacyLoaded.progress.broken == source.progress.broken,
+            "legacy v1 save loads with no pending drops");
+    }
+  }
+  {
+    std::string badDrop = validText;
+    const auto dropSection = badDrop.find("\nD 1\n");
+    check(dropSection != std::string::npos,
+          "saved world has one test drop");
+    if (dropSection != std::string::npos) {
+      const auto itemStart = dropSection + std::string("\nD 1\n").size();
+      badDrop.replace(itemStart, 1, "6");
+      std::ofstream out(dir / "bad_drop.save", std::ios::trunc);
+      out << badDrop;
+    }
+  }
+  const float atomicX = unchanged.player.x;
+  check(!unchanged.load((dir / "bad_drop.save").string()) &&
+            near(unchanged.player.x, atomicX) && unchanged.drops().empty(),
+        "malformed v2 drop is rejected without partial state mutation");
   const auto cellData = validText.find("\nC 6000\n");
   check(cellData != std::string::npos,
         "saved world includes complete cell section");

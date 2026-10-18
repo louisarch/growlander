@@ -4,11 +4,11 @@ Growlander adalah game platformer 2D lokal berbasis C++17, SDL2 (minimal 2.0.18)
 
 ## Preview Android — untuk tinjauan pribadi
 
-Revisi ini memakai landscape 1280 × 720, kontrol sentuh dua jari, hotbar enam slot, dan HUD ringkas. Checklist besar, detail dunia, nama di atas avatar, serta legenda keyboard permanen dihilangkan. Petunjuk satu baris menghilang setelah gerak, lompat, dan aksi dicoba; pesan aksi hanya tampil sementara. Inventaris, bantuan, dan menu tampil sebagai panel yang menjeda dunia.
+Revisi ini memakai landscape 1280 × 720, palet langit biru/rumput sitrus/tanah hangat, kontrol sentuh dua jari, hotbar enam slot, dan HUD mengambang yang ringkas. Kamera mengikuti avatar dengan easing ringan; pukulan dan panen memberi animasi tangan, retakan, dan serpihan. Checklist besar, detail dunia, nama di atas avatar, serta legenda keyboard permanen dihilangkan. Petunjuk satu baris menghilang setelah gerak, lompat, dan aksi dicoba; pesan aksi hanya tampil sementara. Inventaris, bantuan, dan menu tampil sebagai panel yang menjeda dunia.
 
 - Kiri bawah: gerak kiri/kanan. Kanan bawah: lompat dan pukul/panen; di atasnya: pasang/tanam.
-- Sentuh tile untuk memilih target, pilih item di hotbar, lalu tahan tombol aksi. Gerak dan lompat bisa dilakukan bersama dengan dua jari.
-- `Tas`, `Bantu`, dan `Menu` membuka panel; `Tutup` kembali bermain. Menu menyediakan simpan, lanjut, simpan & keluar, serta kembali ke rumah.
+- Sentuh tile untuk langsung beraksi: tile terisi dipukul; tile kosong memakai item hotbar. Tahan untuk mengulang pukulan atau geser ke tile lain untuk memasang. Menahan pasang tidak menghancurkan blok yang baru dibuat. Tombol Pukul/Pasang tetap tersedia; gerak dan lompat dapat dilakukan bersamaan dengan dua jari. Target lama dibersihkan saat bergerak.
+- `Tas`, `Bantu`, dan `Menu` membuka panel; memilih item pada grid tas langsung menutup tas tanpa aksi tembus. Sentuh luar panel atau `X` untuk menutup tas; `Tutup` juga kembali bermain. Menu menyediakan simpan, lanjut, simpan & keluar, serta kembali ke rumah.
 - Saat aplikasi kehilangan fokus atau masuk latar belakang, input dibersihkan, game dijeda, dan dunia disimpan lokal. Pertumbuhan tidak berjalan saat jeda.
 - Keyboard dan mouse desktop tetap bekerja. Tampilan menjaga rasio landscape; perangkat sangat lebar dapat memiliki letterbox.
 
@@ -98,11 +98,21 @@ Opsi tambahan `--mobile-preview` menampilkan petunjuk sentuh; `--touch-test` men
 
 ## Mulai bermain
 
-Pecahkan tanah dengan dua pukulan untuk menambah bahan ke inventaris. Pilih blok lalu klik kanan di ruang kosong dalam jangkauan empat tile; blok tidak bisa ditempatkan di tubuh avatar. Lapisan batu dasar tidak dapat dipecahkan.
+Pecahkan tanah dengan dua pukulan untuk menjatuhkan bahan ke dunia. Dekati drop untuk mengambilnya otomatis setelah jeda 0,3 detik; drop yang jauh tidak hilang. Pickup memakai jarak 1,5 tile dari tubuh avatar dan menghormati batas inventaris. Pilih blok lalu klik kanan di ruang kosong dalam jangkauan empat tile; blok tidak bisa ditempatkan di tubuh avatar. Lapisan batu dasar tidak dapat dipecahkan.
 
-Untuk berkebun, tekan **6 (Benih)** lalu klik kanan ruang kosong tepat di atas tanah. Batang dan bilah pertumbuhan berubah selama **18 detik bermain aktif**. Saat buah kuning muncul, klik kiri pada tile pangkal pohon untuk panen; hasil otomatis masuk inventaris. Blok penopang pohon dilindungi sampai tanaman dipanen. Tidak ada pertumbuhan saat menu dijeda atau aplikasi ditutup.
+Untuk berkebun, tekan **6 (Benih)** lalu klik kanan ruang kosong tepat di atas tanah. Batang dan bilah pertumbuhan berubah selama **18 detik bermain aktif**. Saat buah kuning muncul, klik kiri pada tile pangkal pohon untuk panen; hasil jatuh sebagai kayu, benih, dan permata yang diambil saat didekati. Blok penopang pohon dilindungi sampai tanaman dipanen. Tidak ada pertumbuhan saat menu dijeda atau aplikasi ditutup.
 
-Inventaris, progres, dunia, serta waktu tumbuh disimpan lokal dengan F5 atau saat keluar dan dimuat saat game dibuka kembali. F9 memuat simpanan terakhir; perubahan sejak simpan terakhir akan diganti. Jika penyimpanan gagal, pesan kesalahan ditampilkan. File save memiliki versi dan divalidasi sebelum mengganti state permainan.
+Inventaris, progres, dunia, serta waktu tumbuh disimpan lokal dengan F5 atau saat keluar dan dimuat saat game dibuka kembali. F9 memuat simpanan terakhir; perubahan sejak simpan terakhir akan diganti. Jika penyimpanan gagal, pesan kesalahan ditampilkan. File save memiliki versi dan divalidasi sebelum mengganti state permainan. Format v2 menyimpan drop yang belum diambil; save v1 lama tetap dapat dimuat. Kunci penyimpanan browser tetap dipertahankan agar progres lama tidak terputus.
+
+## Regresi browser desktop + sentuh
+
+Dengan build WASM disajikan pada port lokal, jalankan:
+
+```sh
+python3 tests/browser_ui_test.py http://127.0.0.1:8000/ --evidence /tmp/growlander-browser-evidence
+```
+
+Tes memerlukan Python Playwright, Chromium (`/usr/bin/chromium`), dan Pillow. Tes memakai profil browser sementara tanpa simpanan pemain: smoke/touch/ultrawide, keyboard dan mouse, tas/jeda, pertumbuhan 18 detik nyata, drop/pickup, save/load/reload, tap/tahan tile, dua jari, dan landscape mobile 844 × 390 serta 960 × 432. Emulasi sentuh browser bukan pengujian APK atau perangkat Android fisik.
 
 ## Aset
 
