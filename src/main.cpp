@@ -28,6 +28,7 @@ struct Art {
   TTF_Font *normal = nullptr;
   TTF_Font *title = nullptr;
   std::map<std::string, SDL_Texture *> cache;
+  bool textFilteringOK = true;
   Art(SDL_Renderer *renderer, const std::string &font) : r(renderer) {
     small = TTF_OpenFont(font.c_str(), 14);
     normal = TTF_OpenFont(font.c_str(), 17);
@@ -86,6 +87,12 @@ struct Art {
       SDL_FreeSurface(surf);
       if (!tex)
         return;
+      // Fractional logical-size scaling must not drop thin glyph strokes.
+      // Filter only antialiased text, leaving pixel-art primitives unchanged.
+      SDL_ScaleMode mode = SDL_ScaleModeNearest;
+      if (SDL_SetTextureScaleMode(tex, SDL_ScaleModeLinear) != 0 ||
+          SDL_GetTextureScaleMode(tex, &mode) != 0 || mode != SDL_ScaleModeLinear)
+        textFilteringOK = false;
       cache.emplace(key, tex);
     } else
       tex = it->second;
@@ -764,7 +771,7 @@ int main(int argc, char **argv) {
         if (lastSmoke) {
           bool gameplayOK=game.progress.planted>=2 && game.progress.harvested>=1 &&
                     game.progress.broken>=1 && game.progress.placed>=1 && maxJump<21.f && game.player.x>10.5f;
-          bool ok = gameplayOK && (!touchTest || (hintMove && hintJump && hintAction && selected==4 &&
+          bool ok = art.textFilteringOK && !art.cache.empty() && gameplayOK && (!touchTest || (hintMove && hintJump && hintAction && selected==4 &&
                     panelPauseOK && backgroundPauseOK && !paused && !bag && !help &&
                     touches.horizontal()==0 && !touches.held(gl::TouchRole::Punch)));
 
@@ -773,6 +780,7 @@ int main(int argc, char **argv) {
                     << " broken=" << game.progress.broken
                     << " placed=" << game.progress.placed
                     << " panel_pause=" << panelPauseOK << " background_pause=" << backgroundPauseOK
+                    << " text_filter=" << art.textFilteringOK
                     << " jump_min_y=" << maxJump
                     << " player_x=" << game.player.x << " => "
                     << (ok ? "PASS" : "FAIL") << '\n';
