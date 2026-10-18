@@ -2,6 +2,22 @@
 
 Growlander adalah game platformer 2D lokal berbasis C++17, SDL2 (minimal 2.0.18), dan SDL2_ttf. Dunia awal dibuat secara prosedural (100 × 60 tile); permainan tidak memakai server atau akun. Aset visual dibuat sendiri dan tidak menyalin aset berhak cipta Growtopia.
 
+## Web: dunia sebagai halaman
+Versi browser langsung membuka dunia memenuhi viewport, tanpa bingkai player, header situs, atau halaman yang harus digulir. Canvas SDL/WebAssembly tetap menjalankan seluruh simulasi; HUD HTML berada di atasnya dan memakai satu sistem warna laut, garis sian, serta sorotan emas. Area dunia mengikuti portrait, landscape, resize, dan fullscreen tanpa meregangkan tile atau mengecilkan HUD ke rasio 16:9.
+
+- Profil dan permata di kiri atas, nama dunia di atas, menu/bantuan/log sistem di kanan, hotbar enam item di tengah bawah. Tombol sentuh memakai ukuran CSS tersendiri, bukan ikut mengecil bersama dunia.
+- Tas, bantuan, dan menu adalah dialog HTML responsif yang menjeda simulasi. Cari dan pilih item di tas untuk kembali bermain; membuka/menutup panel tidak meneruskan sentuhan ke dunia. Log hanya menampilkan kejadian lokal, bukan chat multiplayer.
+- Klik/tap tile terisi untuk memukul; tile kosong memakai item pilihan. Tahan untuk memukul berulang, atau geser ke tile lain untuk memasang. Klik kanan tetap memasang item. Keyboard asli, multi-touch arah + lompat, serta tombol pukul/pasang tetap tersedia.
+- Fullscreen opsional, bukan syarat agar game memenuhi halaman. Progres memakai kunci browser `growlander.world.v1` dan format save lama yang sama; model dunia, inventaris, drop, dan waktu pertumbuhan tidak diganti.
+- UI web berkomunikasi lewat antrean perintah numerik dan snapshot state dari engine. Mode deterministik `?test=smoke`, `?test=touch`, dan `?test=wide` sengaja tetap memakai HUD SDL lama untuk menjaga regresi engine yang terpisah dari pengujian overlay.
+
+Pengujian browser baru (profil sementara; tidak menyentuh save pengguna):
+```sh
+python3 tests/browser_overlay_test.py http://127.0.0.1:8000/ --evidence /tmp/growlander-overlay
+python3 tests/browser_overlay_test.py http://127.0.0.1:8000/ --layout-only
+```
+`browser_ui_test.py` dan `browser_layout_test.py` meneruskan ke suite yang sama. Matrix responsif mencakup desktop, ultrawide, portrait 320/390 px, dan landscape; emulasi browser tidak membuktikan kompatibilitas perangkat fisik atau Safari.
+
 ## Preview Android — untuk tinjauan pribadi
 
 Revisi ini memakai landscape 1280 × 720, palet langit biru/rumput sitrus/tanah hangat, kontrol sentuh dua jari, hotbar enam slot, dan HUD mengambang yang ringkas. Kamera mengikuti avatar dengan easing ringan; pukulan dan panen memberi animasi tangan, retakan, dan serpihan. Checklist besar, detail dunia, nama di atas avatar, serta legenda keyboard permanen dihilangkan. Petunjuk satu baris menghilang setelah gerak, lompat, dan aksi dicoba; pesan aksi hanya tampil sementara. Inventaris, bantuan, dan menu tampil sebagai panel yang menjeda dunia.
@@ -86,7 +102,7 @@ Opsi tambahan `--mobile-preview` menampilkan petunjuk sentuh; `--touch-test` men
 | --- | --- |
 | A/D atau panah kiri/kanan | Bergerak |
 | Space, W, atau panah atas | Melompat |
-| Tahan tombol kiri mouse | Memukul / memanen |
+| Klik/tahan kiri mouse | Web: aksi konteks tile; native: memukul / memanen |
 | Tombol kanan mouse | Menempatkan seed atau blok |
 | Tombol 1–6 / klik hotbar | Pilih Tangan, Tanah, Batu, Kayu, Bata, Benih |
 | Roda mouse | Ganti item terpilih |
@@ -112,7 +128,7 @@ Dengan build WASM disajikan pada port lokal, jalankan:
 python3 tests/browser_ui_test.py http://127.0.0.1:8000/ --evidence /tmp/growlander-browser-evidence
 ```
 
-Tes memerlukan Python Playwright, Chromium (`/usr/bin/chromium`), dan Pillow. Tes memakai profil browser sementara tanpa simpanan pemain: smoke/touch/ultrawide, keyboard dan mouse, tas/jeda, pertumbuhan 18 detik nyata, drop/pickup, save/load/reload, tap/tahan tile, dua jari, dan landscape mobile 844 × 390 serta 960 × 432. Emulasi sentuh browser bukan pengujian APK atau perangkat Android fisik.
+Tes memerlukan Python Playwright, Chromium (`/usr/bin/chromium`), dan Pillow. Tes memakai profil browser sementara tanpa simpanan pemain untuk memeriksa engine WASM, overlay, input keyboard/sentuh, jeda panel, save/load/reload, dan layout responsif. Emulasi sentuh browser bukan pengujian APK atau perangkat Android fisik.
 
 ## Aset
 

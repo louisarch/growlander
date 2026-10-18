@@ -16,7 +16,10 @@
 #endif
 
 namespace {
-constexpr int W = 1280, H = 720, T = 40;
+// Native and deterministic tests retain their original coordinate system.
+// Browser play sizes the world viewport independently from the HTML HUD.
+int W = 1280, H = 720;
+constexpr int T = 40;
 struct Color {
   Uint8 r, g, b, a = 255;
 };
@@ -311,7 +314,9 @@ int main(int argc, char **argv) {
     SDL_Quit();
     return 1;
   }
+#ifndef __EMSCRIPTEN__
   SDL_SetWindowMinimumSize(window, 640, 360);
+#endif
   SDL_Renderer *renderer = SDL_CreateRenderer(
       window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
   if (!renderer)
@@ -369,6 +374,10 @@ int main(int argc, char **argv) {
 #endif
         return true;
       };
+      bool webOverlay = false;
+#ifdef __EMSCRIPTEN__
+      webOverlay = !smoke;
+#endif
       bool running = true, paused = false, bag = false, help = false,
            left = false, right = false;
       std::array<bool, SDL_NUM_SCANCODES> keys{};
@@ -410,6 +419,7 @@ int main(int argc, char **argv) {
         touches.clear(); keys.fill(false); left = right = jump = false;
       };
       auto uiClick = [&](int x, int y) {
+        if (webOverlay) return bag || help || paused;
         if (gl::inside(x,y,1184,6,72,48)) {
           bag = help = paused = false; clearInput(); return true;
         }
@@ -449,7 +459,7 @@ int main(int argc, char **argv) {
       };
       auto pointerDown = [&](std::int64_t id, int x, int y) {
         if (uiClick(x,y)) return;
-        auto role = gl::touchRole(x,y);
+        auto role = webOverlay ? gl::TouchRole::World : gl::touchRole(x,y);
         touches.down(id,role);
         if (role == gl::TouchRole::World) {
           targetX=int(std::floor((x+cameraX)/T));
@@ -490,14 +500,68 @@ int main(int argc, char **argv) {
                 : std::min(.05f, float(double(now - previous) /
                                        double(SDL_GetPerformanceFrequency())));
         previous = now;
+#ifdef __EMSCRIPTEN__
+        if (webOverlay) {
+          int cssW = EM_ASM_INT({ return Math.round(Module.canvas.getBoundingClientRect().width); });
+          int cssH = EM_ASM_INT({ return Math.round(Module.canvas.getBoundingClientRect().height); });
+          if (cssW > 0 && cssH > 0) {
+            float scale = std::clamp(std::min(cssW/1280.f,cssH/720.f), .75f, 1.25f);
+            int nextW = std::min(gl::WorldWidth*T-1, int(std::round(cssW/scale)));
+            int nextH = std::min(gl::WorldHeight*T-1, int(std::round(cssH/scale)));
+            int ww=0,wh=0; SDL_GetWindowSize(window,&ww,&wh);
+            if (W!=nextW || H!=nextH || ww!=cssW || wh!=cssH) {
+              W=nextW; H=nextH;
+              SDL_SetWindowSize(window,cssW,cssH);
+              SDL_RenderSetLogicalSize(renderer,W,H);
+              clearInput(); targetSet=false;
+              cameraX=std::clamp(game.player.x*T-W*.5f,0.f,float(gl::WorldWidth*T-W));
+              cameraY=std::clamp(game.player.y*T-H*.48f,0.f,float(gl::WorldHeight*T-H));
+            }
+          }
+          // A bounded, numeric command queue is the only DOM-to-engine API.
+          for (int n=0;n<32;++n) {
+            int command=EM_ASM_INT({ return window.growlander?.commands.shift() || 0; });
+            if (!command) break;
+            clearInput();
+            if (command==1) { bag=!bag; help=paused=false; }
+            else if (command==2) { help=!help; bag=paused=false; }
+            else if (command==3) { paused=!paused; bag=help=false; }
+            else if (command==4) { paused=bag=help=false; }
+            else if (command==5) saveGame();
+            else if (command==6) {
+              if (!game.load(savePath)) game.message="Belum ada simpanan yang valid.";
+              targetSet=false;
+              cameraX=std::clamp(game.player.x*T-W*.5f,0.f,float(gl::WorldWidth*T-W));
+              cameraY=std::clamp(game.player.y*T-H*.48f,0.f,float(gl::WorldHeight*T-H));
+            }
+            else if (command==7) {
+              game.player={}; game.player.y=20; targetSet=false;
+              paused=bag=help=false; game.message="Kembali ke titik awal.";
+            }
+            else if (command>=10 && command<16) {
+              selected=command-10; bag=false;
+            }
+          }
+          int input=EM_ASM_INT({
+            const i=window.growlander?.input || {};
+            return (i.left?1:0)|(i.right?2:0)|(i.jump?4:0)|(i.punch?8:0)|(i.place?16:0);
+          });
+          const gl::TouchRole roles[]={gl::TouchRole::Left,gl::TouchRole::Right,
+            gl::TouchRole::Jump,gl::TouchRole::Punch,gl::TouchRole::Place};
+          for(int n=0;n<5;++n) {
+            if(input & (1<<n)) touches.down(-100-n,roles[n]);
+            else touches.up(-100-n);
+          }
+        }
+#endif
         time += dt;
         messageTimer = std::max(0.f, messageTimer-dt);
         swingTimer = std::max(0.f, swingTimer-dt);
         pickupTimer = std::max(0.f, pickupTimer-dt);
         cooldown = std::max(0.f, cooldown - dt);
         if(frame==0) {
-          cameraX=std::clamp(game.player.x*T-W*.40f,0.f,float(gl::WorldWidth*T-W));
-          cameraY=std::clamp(game.player.y*T-H*.53f,0.f,float(gl::WorldHeight*T-H));
+          cameraX=std::clamp(game.player.x*T-W*(webOverlay?.50f:.40f),0.f,float(gl::WorldWidth*T-W));
+          cameraY=std::clamp(game.player.y*T-H*(webOverlay?.48f:.53f),0.f,float(gl::WorldHeight*T-H));
         }
         if (touchTest) {
           auto finger = [&](Uint32 type, SDL_FingerID id, int x, int y) {
@@ -598,10 +662,13 @@ int main(int argc, char **argv) {
             }
           } else if (e.type == SDL_WINDOWEVENT &&
                      e.window.event == SDL_WINDOWEVENT_FOCUS_LOST) {
+            // DOM overlay focus is not application backgrounding.
+#ifdef __EMSCRIPTEN__
+            if (webOverlay && EM_ASM_INT({ return document.hasFocus() && !document.hidden; })) continue;
+#endif
             clearInput();
             if (!smoke) saveGame();
-            if (!smoke)
-              paused = true;
+            if (!smoke) paused = true;
           } else if (e.type == SDL_KEYUP) {
             if (e.key.keysym.scancode < SDL_NUM_SCANCODES)
               keys[e.key.keysym.scancode] = false;
@@ -643,23 +710,26 @@ int main(int argc, char **argv) {
               game.message = "Kembali ke titik awal.";
             }
             if (paused && sc == SDL_SCANCODE_RETURN) {
-              if (saveGame())
-                running = false;
+              if (webOverlay) { paused=false; clearInput(); }
+              else if (saveGame()) running = false;
             }
           } else if (e.type == SDL_MOUSEWHEEL) {
             selected = (selected + (e.wheel.y > 0 ? 5 : 1)) % 6;
           } else if (e.type == SDL_MOUSEMOTION && e.motion.which != SDL_TOUCH_MOUSEID) {
             mx = e.motion.x;
             my = e.motion.y; pointerSeen=true;
-            if (!mobilePreview) targetSet=false;
+            if (!mobilePreview && !touches.held(gl::TouchRole::World)) targetSet=false;
+            if (webOverlay && touches.held(gl::TouchRole::World) && !paused && !bag && !help) {
+              targetX=int(std::floor((mx+cameraX)/T)); targetY=int(std::floor((my+cameraY)/T)); targetSet=true;
+            }
           } else if (e.type == SDL_MOUSEBUTTONDOWN && e.button.which != SDL_TOUCH_MOUSEID) {
             mx=e.button.x; my=e.button.y; pointerSeen=true;
             if (e.button.button==SDL_BUTTON_LEFT && uiClick(mx,my)) continue;
             auto role=gl::touchRole(mx,my);
-            if(mobilePreview && e.button.button==SDL_BUTTON_LEFT && role!=gl::TouchRole::World) {
+            if(!webOverlay && mobilePreview && e.button.button==SDL_BUTTON_LEFT && role!=gl::TouchRole::World) {
               pointerDown(-900,mx,my); continue;
             }
-            if(mobilePreview && e.button.button==SDL_BUTTON_LEFT) {
+            if((mobilePreview || webOverlay) && e.button.button==SDL_BUTTON_LEFT) {
               pointerDown(-900,mx,my); continue;
             }
             if(e.button.button==SDL_BUTTON_LEFT) { left=true; singleLeft=true; }
@@ -694,9 +764,9 @@ int main(int argc, char **argv) {
             targetX=int(game.player.x)+direction*2;
             targetY=int(game.player.y+1.7f)-(selected==0 ? 0 : 1);
           }
-          int tx = mobilePreview ? targetX : int(std::floor((mx+cameraX)/T));
-          int ty = mobilePreview ? targetY : int(std::floor((my+cameraY)/T));
-          bool hud = !mobilePreview && (my<60 || gl::inside(mx,my,448,592,384,110));
+          int tx = (mobilePreview || (webOverlay && touches.held(gl::TouchRole::World))) ? targetX : int(std::floor((mx+cameraX)/T));
+          int ty = (mobilePreview || (webOverlay && touches.held(gl::TouchRole::World))) ? targetY : int(std::floor((my+cameraY)/T));
+          bool hud = !webOverlay && !mobilePreview && (my<60 || gl::inside(mx,my,448,592,384,110));
           if (!hud && cooldown <= 0) {
             if (left || singleLeft || touches.held(gl::TouchRole::Punch)) {
               const int punchY = mobilePreview && !targetSet ? int(game.player.y+1.7f) : ty;
@@ -723,8 +793,8 @@ int main(int argc, char **argv) {
         }
         if(!frozen) {
           const float blend=1.f-std::exp(-12.f*dt);
-          cameraX+=(std::clamp(game.player.x*T-W*.40f,0.f,float(gl::WorldWidth*T-W))-cameraX)*blend;
-          cameraY+=(std::clamp(game.player.y*T-H*.53f,0.f,float(gl::WorldHeight*T-H))-cameraY)*blend;
+          cameraX+=(std::clamp(game.player.x*T-W*(webOverlay?.50f:.40f),0.f,float(gl::WorldWidth*T-W))-cameraX)*blend;
+          cameraY+=(std::clamp(game.player.y*T-H*(webOverlay?.48f:.53f),0.f,float(gl::WorldHeight*T-H))-cameraY)*blend;
           if(std::abs(cameraX)<.1f) cameraX=0;
         }
         jump = false;
@@ -736,13 +806,13 @@ int main(int argc, char **argv) {
           float k = float(y) / H;
           art.rect(0,y,W,5,{Uint8(44+70*k),Uint8(142+61*k),Uint8(235-11*k)});
         }
-        int sunX=1050-int(cameraX*.06f), sunY=150-int(cameraY*.03f);
+        int sunX=int(W*.82f)-int(cameraX*.06f), sunY=int(H*.22f)-int(cameraY*.03f);
         art.rect(sunX-39,sunY-26,78,52,{255,224,100});
         art.rect(sunX-26,sunY-39,52,78,{255,224,100});
         art.rect(sunX-26,sunY-28,43,9,{255,246,180});
-        for(int n=0;n<9;++n) {
+        for(int n=0;n<W/200+3;++n) {
           int x=int(n*230-cameraX*.15f)%2070-100;
-          int yy=150+(n%3)*32-int(cameraY*.08f);
+          int yy=int(H*.22f)+(n%3)*32-int(cameraY*.08f);
           art.rect(x,yy,100,18,{180,222,255});
           art.rect(x+3,yy-5,92,17,{246,252,255});
           art.rect(x+20,yy-18,53,20,{246,252,255});
@@ -750,12 +820,12 @@ int main(int argc, char **argv) {
         for(int layer=0;layer<2;++layer)
           for(int x=0;x<W;x+=8) {
             float wx=x+cameraX*(layer?.25f:.12f);
-            int yy=int(425+layer*63+std::sin(wx*.005f+layer)*48+std::cos(wx*.012f)*18-cameraY*.12f);
+            int yy=int(H*.60f+layer*63+std::sin(wx*.005f+layer)*48+std::cos(wx*.012f)*18-cameraY*.12f);
             art.rect(x,yy,9,H-yy,layer?Color{52,158,147}:Color{91,180,196});
           }
         for(int n=0;n<24;++n) {
           int x=int(n*127-cameraX*.28f)%3048-60;
-          int y=405+int(std::sin(n*1.8f)*22)-int(cameraY*.12f);
+          int y=int(H*.57f)+int(std::sin(n*1.8f)*22)-int(cameraY*.12f);
           art.rect(x+13,y,7,65,{43,137,127});
           art.rect(x,y-8,35,25,{43,137,127});
           art.rect(x+6,y-22,24,26,{43,137,127});
@@ -812,12 +882,14 @@ int main(int argc, char **argv) {
           art.panel(px-28,py-36,200,29);
           art.text(pickupText,px-20,py-32,Mint,14);
         }
-        int tx = mobilePreview ? targetX : int(std::floor((mx+cameraX)/T));
-        int ty = mobilePreview ? targetY : int(std::floor((my+cameraY)/T));
-        if (!frozen && (mobilePreview || (pointerSeen && my>=60 && !gl::inside(mx,my,448,592,384,110)))) {
+        int tx = (mobilePreview || (webOverlay && touches.held(gl::TouchRole::World))) ? targetX : int(std::floor((mx+cameraX)/T));
+        int ty = (mobilePreview || (webOverlay && touches.held(gl::TouchRole::World))) ? targetY : int(std::floor((my+cameraY)/T));
+        if (!frozen && (mobilePreview || (pointerSeen && (webOverlay || (my>=60 && !gl::inside(mx,my,448,592,384,110)))))) {
           bool reach=game.inReach(tx,ty);
           art.border(int(tx*T-cameraX),int(ty*T-cameraY),T,T,reach?Gold:Color{235,122,110},2);
         }
+        // Browser UI is real HTML over the world, not a scaled video-like HUD.
+        if (!webOverlay) {
         // Floating HUD islands leave the middle of the world unobstructed.
         art.panel(16,8,188,46);
         art.text("GROWLANDER",27,18,White,17);
@@ -910,6 +982,26 @@ int main(int argc, char **argv) {
                      14);
           }
         }
+        } // Native/test HUD.
+#ifdef __EMSCRIPTEN__
+        if (webOverlay) {
+          // Emscripten EM_ASM supports at most 16 scalar arguments per call.
+          EM_ASM({
+            if (window.growlander) window.growlander.pendingState=({selected:$0, inventory:[$1,$2,$3,$4,$5,$6],
+              gems:$7,broken:$8,placed:$9,planted:$10,harvested:$11,elapsed:$12,
+              paused:!!$13,bag:!!$14,help:!!$15});
+          }, selected,game.inventory[0],game.inventory[1],game.inventory[2],game.inventory[3],game.inventory[4],game.inventory[5],
+            game.gems,game.progress.broken,game.progress.placed,game.progress.planted,game.progress.harvested,game.elapsed,
+            paused,bag,help);
+          EM_ASM({
+            const bridge=window.growlander;
+            if (bridge) bridge.render(Object.assign(bridge.pendingState, {
+              message:UTF8ToString($0),pickup:UTF8ToString($1),
+              x:$2,y:$3,cameraX:$4,cameraY:$5,width:$6,height:$7}));
+          }, game.message.c_str(),(pickupTimer>0?pickupText:std::string()).c_str(),
+            game.player.x,game.player.y,cameraX,cameraY,W,H);
+        }
+#endif
         bool lastSmoke = smoke && frame >= 239;
         if (lastSmoke) {
           bool gameplayOK=game.progress.planted>=2 && game.progress.harvested>=1 &&

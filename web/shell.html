@@ -3,173 +3,569 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#f6f7f2">
-  <meta name="description" content="Growlander, game sandbox single-player di browser. Jelajahi, tanam, dan bangun duniamu sendiri.">
+  <meta name="theme-color" content="#071724">
+  <meta name="description" content="Growlander — jelajahi, bangun, dan tanam di duniamu sendiri.">
   <title>Growlander</title>
   <style>
-    :root { color-scheme: light; --ink: #24382f; --muted: #5d7065; --line: #dce3d9; --green: #285a3d; background: #f6f7f2; }
-    * { box-sizing: border-box; }
-    html { scroll-padding-top: 20px; }
-    body { margin: 0; color: var(--ink); font: 15px/1.6 system-ui, sans-serif; }
-    a { color: inherit; text-underline-offset: 4px; }
-    button { font: inherit; cursor: pointer; touch-action: manipulation; }
-    a:focus-visible, button:focus-visible, summary:focus-visible { outline: 3px solid #af7224; outline-offset: 4px; }
-    .wrap { width: min(1120px, calc(100% - 64px)); margin-inline: auto; }
-    .site-header { border-bottom: 1px solid var(--line); background: #fcfcf8; }
-    .header-inner { min-height: 78px; display: flex; align-items: center; justify-content: space-between; gap: 24px; }
-    .brand { display: inline-flex; align-items: center; gap: 12px; font-size: 21px; font-weight: 800; letter-spacing: -.7px; text-decoration: none; }
-    .brand-mark { width: 28px; height: 28px; background: #589148; border-top: 8px solid #80b358; border-bottom: 8px solid #a77549; box-shadow: inset 0 -4px #8d603f; }
-    nav { display: flex; align-items: center; gap: 28px; font-size: 13px; font-weight: 650; }
-    nav a { text-decoration: none; }
-    nav a:hover { color: #46734a; text-decoration: underline; }
-    .intro { padding: 36px 0 25px; display: flex; justify-content: space-between; align-items: end; gap: 24px; }
-    .eyebrow { margin: 0 0 5px; color: var(--green); font-size: 11px; letter-spacing: 1.8px; text-transform: uppercase; font-weight: 800; }
-    h1 { margin: 0 0 5px; font-size: clamp(26px, 3.5vw, 38px); line-height: 1.2; letter-spacing: -1.2px; }
-    .intro p:last-child { margin: 0; color: var(--muted); }
-    .tag { flex-shrink: 0; padding: 5px 12px; border: 1px solid #cdddc8; border-radius: 100px; color: var(--green); background: #edf3e7; font-size: 12px; font-weight: 650; }
-    .player { border: 1px solid #cbd5c8; border-radius: 12px; overflow: hidden; background: #fff; box-shadow: 0 8px 28px #263d2810; }
-    #game-frame { width: 100%; aspect-ratio: 16 / 9; position: relative; background: #10223f; }
-    #canvas { display: block; width: 100%; height: 100%; border: 0; outline: none; background: #10223f; touch-action: none; -webkit-user-select: none; user-select: none; }
-    #canvas:focus-visible { outline: 3px solid #e6bf62; outline-offset: -3px; }
-    #game-frame:fullscreen { width: 100vw; height: 100vh; aspect-ratio: auto; display: grid; place-items: center; }
-    #game-frame:fullscreen #canvas { width: min(100vw, 177.7778vh); height: auto; aspect-ratio: 16 / 9; }
-    #exit-fullscreen { display: none; }
-    #game-frame:fullscreen #exit-fullscreen { display: block; position: absolute; top: max(8px, env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); padding: 6px 12px; border: 1px solid #c8d6bf; border-radius: 6px; background: #fcfcf8; color: var(--ink); font-size: 12px; }
-    #toolbar { min-height: 62px; padding: 10px 18px; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
-    .player-meta { display: flex; align-items: center; flex-wrap: wrap; column-gap: 14px; font-size: 12px; color: var(--muted); }
-    .player-meta strong { color: var(--ink); font-size: 13px; }
-    #status { font-size: 11px; color: var(--muted); overflow-wrap: anywhere; }
-    #status:empty { display: none; }
-    #fullscreen { flex-shrink: 0; padding: 8px 13px; background: #f4f6ef; color: var(--green); border: 1px solid #d5dfd0; border-radius: 6px; font-size: 12px; font-weight: 700; }
-    #fullscreen:hover { background: #e8efdf; }
-    .play-note { margin: 12px 0 28px; text-align: center; color: var(--muted); font-size: 12px; }
-    .info-grid { display: grid; grid-template-columns: 1.3fr 1fr; gap: 40px; padding: 27px 0 36px; border-top: 1px solid var(--line); }
-    h2 { margin: 0 0 10px; font-size: 19px; letter-spacing: -.4px; }
-    .about p { margin: 0; color: var(--muted); max-width: 53ch; font-size: 14px; }
-    details { border-bottom: 1px solid var(--line); padding: 0 0 12px; margin-bottom: 12px; font-size: 13px; }
-    summary { cursor: pointer; font-weight: 700; }
-    .controls { display: grid; grid-template-columns: auto 1fr; gap: 7px 18px; margin: 14px 0 0; color: var(--muted); }
-    .controls dt { color: var(--ink); font-weight: 600; }
-    .controls dd { margin: 0; }
-    details p { margin: 10px 0 0; color: var(--muted); }
-    kbd { font: 11px/1.5 system-ui, sans-serif; border: 1px solid #d3dcce; border-bottom-width: 2px; border-radius: 4px; padding: 1px 5px; background: #fff; white-space: nowrap; }
-    footer { border-top: 1px solid var(--line); padding: 18px 0 25px; color: var(--muted); font-size: 12px; }
-    footer .wrap { display: flex; justify-content: space-between; gap: 20px; }
-    @media (max-width: 600px) {
-      .wrap { width: calc(100% - 28px); }
-      .header-inner { min-height: 66px; gap: 12px; }
-      .brand { font-size: 18px; gap: 9px; }
-      .brand-mark { width: 23px; height: 25px; }
-      nav { gap: 16px; font-size: 12px; }
-      .intro { padding: 27px 0 20px; align-items: start; flex-direction: column; gap: 12px; }
-      .intro p:last-child { font-size: 13px; }
-      .tag { font-size: 11px; padding: 3px 10px; }
-      .player { border-radius: 8px; }
-      #toolbar { padding: 10px; gap: 8px; }
-      .player-meta { gap: 0 8px; }
-      .player-meta strong { font-size: 12px; }
-      #fullscreen { padding: 8px 10px; }
-      .play-note { margin: 10px 8px 24px; font-size: 11px; }
-      .info-grid { grid-template-columns: 1fr; gap: 25px; padding-top: 23px; }
-      footer .wrap { flex-direction: column; gap: 4px; }
+    :root {
+      color-scheme: dark;
+      --ocean-950: #06131e;
+      --ocean-900: #0a1d2b;
+      --ocean-800: #102b3b;
+      --ocean-700: #174155;
+      --cyan: #68d8e7;
+      --cyan-soft: #a1edf1;
+      --gold: #f2c66d;
+      --ink: #eff8f8;
+      --muted: #a7c2c9;
+      --line: rgba(121, 221, 232, .52);
+      --safe-top: env(safe-area-inset-top, 0px);
+      --safe-right: env(safe-area-inset-right, 0px);
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+      --safe-left: env(safe-area-inset-left, 0px);
+      font-family: ui-rounded, "Trebuchet MS", system-ui, sans-serif;
+      background: var(--ocean-950);
     }
-    @media (orientation: landscape) and (max-height: 600px) and (max-width: 960px) {
-      #game-frame { aspect-ratio: auto; }
-      #canvas { width: min(100%, calc((100svh - 80px) * 16 / 9)); height: auto; aspect-ratio: 16 / 9; margin-inline: auto; }
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; min-height: 100%; margin: 0; overflow: hidden; }
+    body { background: var(--ocean-950); color: var(--ink); user-select: none; -webkit-user-select: none; overscroll-behavior: none; }
+    button, input { font: inherit; }
+    button { color: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
+    button:focus-visible, input:focus-visible, canvas:focus-visible { outline: 3px solid var(--gold); outline-offset: 3px; }
+    #game-shell { position: fixed; inset: 0; width: 100vw; height: 100vh; height: 100dvh; overflow: hidden; background: var(--ocean-900); isolation: isolate; }
+    #canvas { position: absolute; inset: 0; display: block; width: 100%; height: 100%; border: 0; background: #12364a; outline: none; touch-action: none; -webkit-user-select: none; user-select: none; }
+    #hud { position: absolute; inset: 0; z-index: 2; pointer-events: none; }
+    .panel, .control, .slot, .modal-card, .log-panel { border: 1px solid var(--line); color: var(--ink); background: linear-gradient(160deg, rgba(14, 43, 59, .94), rgba(7, 24, 36, .92)); box-shadow: 0 8px 24px rgba(0, 8, 14, .28), inset 0 1px rgba(255,255,255,.08); }
+    .panel { border-radius: 15px; }
+    .clickable, #hotbar, #touch-controls, #bag-button, #log-panel, #modal, #status { pointer-events: auto; }
+    #profile { position: absolute; top: calc(14px + var(--safe-top)); left: calc(14px + var(--safe-left)); display: flex; gap: 10px; align-items: center; padding: 7px 12px 7px 7px; min-width: 194px; }
+    .avatar { width: 43px; height: 43px; flex: 0 0 43px; position: relative; overflow: hidden; border-radius: 13px; border: 1px solid rgba(167,237,241,.7); background: linear-gradient(145deg, #397d89, #183f53); box-shadow: inset 0 -8px rgba(4,18,28,.24); }
+    .avatar::before { content: ""; position: absolute; left: 13px; top: 7px; width: 16px; height: 17px; border-radius: 48% 48% 43% 43%; background: #f3d4ab; box-shadow: 0 -4px 0 2px #29313b; }
+    .avatar::after { content: ""; position: absolute; left: 8px; bottom: -5px; width: 27px; height: 21px; border-radius: 13px 13px 3px 3px; background: #e4b765; border: 2px solid rgba(6,25,36,.7); }
+    .identity { min-width: 0; display: grid; gap: 2px; }
+    .brand { font-size: 15px; line-height: 1.1; font-weight: 850; letter-spacing: .02em; white-space: nowrap; }
+    .subbrand { color: var(--muted); font-size: 10px; letter-spacing: .11em; text-transform: uppercase; }
+    #gem-count { display: inline-flex; align-items: center; gap: 6px; margin-top: 2px; color: var(--gold); font-size: 12px; font-weight: 800; font-variant-numeric: tabular-nums; }
+    .gem-shape { width: 11px; height: 14px; display: inline-block; background: linear-gradient(145deg,#fff0a6,#dba343 75%); clip-path: polygon(22% 0,78% 0,100% 35%,50% 100%,0 35%); }
+    #world-name { position: absolute; top: calc(20px + var(--safe-top)); left: 50%; transform: translateX(-50%); max-width: min(42vw, 340px); padding: 8px 15px; border-radius: 999px; color: #e9fbfb; font-size: 12px; font-weight: 750; letter-spacing: .09em; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    #quest { position: absolute; top: calc(82px + var(--safe-top)); left: calc(14px + var(--safe-left)); width: min(240px, calc(100vw - 112px)); padding: 10px 12px; }
+    .quest-head { display:flex; align-items:center; justify-content:space-between; gap:10px; color:var(--cyan-soft); font-size:10px; font-weight:850; letter-spacing:.13em; text-transform:uppercase; }
+    .quest-progress { color:var(--gold); font-variant-numeric:tabular-nums; letter-spacing:0; }
+    #quest-copy { margin-top: 5px; color: var(--ink); font-size: 12px; line-height: 1.35; }
+    .progress-track { height: 4px; margin-top: 8px; overflow: hidden; border-radius: 99px; background: rgba(150,208,218,.2); }
+    #progress-fill { height: 100%; width: 0; border-radius: inherit; background: linear-gradient(90deg,var(--cyan),var(--gold)); transition: width .18s ease; }
+    #action-rail { position: absolute; top: calc(14px + var(--safe-top)); right: calc(14px + var(--safe-right)); display: flex; flex-direction: column; gap: 8px; }
+    .rail-button { position: relative; display: grid; place-items: center; width: 46px; height: 46px; padding: 0; border-radius: 14px; color: var(--cyan-soft); transition: transform .14s, border-color .14s, background .14s; }
+    .rail-button:hover, .control:hover, #bag-button:hover { transform: translateY(-1px); border-color: var(--cyan-soft); }
+    .rail-button svg { width: 21px; height: 21px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+    .rail-button .rail-label { position:absolute; right:54px; top:50%; transform:translateY(-50%); opacity:0; pointer-events:none; padding:5px 8px; border:1px solid var(--line); border-radius:7px; background:var(--ocean-900); color:var(--ink); font-size:11px; white-space:nowrap; transition:opacity .12s; }
+    .rail-button:hover .rail-label, .rail-button:focus-visible .rail-label { opacity:1; }
+    #log-panel { position: absolute; top: calc(14px + var(--safe-top)); right: calc(70px + var(--safe-right)); width: min(320px, calc(100vw - 100px)); max-height: min(42vh, 310px); overflow: hidden; display: flex; flex-direction: column; padding: 12px; border-radius: 15px; }
+    #log-panel[hidden] { display:none; }
+    .log-title { display:flex; justify-content:space-between; align-items:center; padding-bottom:8px; border-bottom:1px solid rgba(121,221,232,.2); font-size:12px; font-weight:850; letter-spacing:.08em; text-transform:uppercase; }
+    .log-title button, .icon-close { border:0; background:none; color:var(--muted); padding:3px 6px; border-radius:7px; }
+    #system-log { display:flex; flex-direction:column; gap:7px; overflow:auto; padding:9px 2px 2px; color:var(--muted); font-size:11px; line-height:1.35; }
+    .log-entry { display:grid; grid-template-columns:48px 1fr; gap:7px; }
+    .log-entry time { color:var(--cyan); font-variant-numeric:tabular-nums; }
+    .empty-log { opacity:.75; }
+    #status { position:absolute; top:calc(15px + var(--safe-top)); left:50%; z-index:4; transform:translateX(-50%); max-width:min(72vw,420px); padding:7px 12px; border:1px solid rgba(242,198,109,.65); border-radius:10px; color:#ffedc4; background:rgba(43,34,19,.92); font-size:12px; text-align:center; box-shadow:0 8px 24px #00101855; }
+    #action-toast { position:absolute; top:calc(96px + var(--safe-top)); left:50%; transform:translateX(-50%); max-width:min(480px,calc(100vw - 112px)); padding:9px 14px; border-radius:12px; color:#fff0ce; font-size:12px; text-align:center; pointer-events:none; opacity:0; transition:opacity .18s; }
+    #action-toast[data-visible="true"] { opacity:1; }
+    @media (max-width:700px) { #action-toast { top:calc(154px + var(--safe-top)); font-size:11px; } }
+    #status:empty { display:none; }
+    #status[data-kind="error"] { border-color:#ff9888; color:#ffe1da; background:rgba(68,27,27,.95); }
+    #selected-readout { position:absolute; left:50%; bottom:calc(91px + var(--safe-bottom)); transform:translateX(-50%); padding:5px 11px; border:1px solid rgba(121,221,232,.36); border-radius:999px; background:rgba(6,22,33,.76); color:var(--cyan-soft); font-size:11px; font-weight:800; letter-spacing:.08em; text-transform:uppercase; white-space:nowrap; }
+    #hotbar { position:absolute; left:50%; bottom:calc(17px + var(--safe-bottom)); display:flex; gap:6px; transform:translateX(-50%); padding:6px; border:1px solid rgba(117,211,224,.45); border-radius:18px; background:rgba(6,20,31,.82); box-shadow:0 10px 32px #00111dcc; backdrop-filter:blur(9px); }
+    .slot { position:relative; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:1px; width:56px; height:58px; padding:4px 3px; border:2px solid rgba(121,221,232,.48); border-radius:13px; background:linear-gradient(155deg,rgba(26,70,88,.96),rgba(8,29,43,.98)); box-shadow:inset 0 1px rgba(255,255,255,.08); }
+    .slot[data-selected="true"] { border-color:var(--gold); box-shadow:0 0 0 2px rgba(242,198,109,.18),0 0 17px rgba(242,198,109,.32),inset 0 1px rgba(255,255,255,.18); background:linear-gradient(155deg,#38566a,#162f41); }
+    .slot svg { width:28px; height:27px; fill:none; stroke:#d7f5f2; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
+    .slot .item-name { max-width:100%; overflow:hidden; color:#c7dce0; font-size:8px; font-weight:800; line-height:1; text-overflow:ellipsis; white-space:nowrap; }
+    .slot[data-selected="true"] .item-name { color:var(--gold); }
+    .slot .count { position:absolute; right:4px; top:2px; color:#fff; font-size:10px; font-weight:850; text-shadow:0 1px 4px #001018; font-variant-numeric:tabular-nums; }
+    .slot .key-hint { position:absolute; top:2px; left:4px; color:rgba(210,237,240,.65); font:700 8px/1 system-ui,sans-serif; }
+    #bag-button { position:absolute; left:50%; bottom:calc(134px + var(--safe-bottom)); transform:translateX(-50%); min-width:96px; min-height:34px; padding:6px 13px; border-radius:11px; color:var(--ink); font-size:11px; font-weight:850; letter-spacing:.04em; }
+    #bag-button svg { width:14px; height:14px; vertical-align:-3px; margin-right:5px; fill:none; stroke:var(--cyan-soft); stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
+    #keyboard-hint { position:absolute; left:50%; bottom:calc(3px + var(--safe-bottom)); transform:translateX(-50%); color:rgba(212,235,238,.56); font-size:9px; white-space:nowrap; pointer-events:none; }
+    #keyboard-hint kbd { padding:1px 4px; border:1px solid rgba(178,223,228,.28); border-radius:4px; background:rgba(6,20,31,.45); font:inherit; color:inherit; }
+    #touch-controls { display:none; }
+    .touch-cluster { position:absolute; bottom:calc(94px + var(--safe-bottom)); display:flex; gap:8px; align-items:center; }
+    #move-controls { left:calc(13px + var(--safe-left)); }
+    #action-controls { right:calc(13px + var(--safe-right)); }
+    .control { display:grid; place-items:center; min-width:54px; width:54px; height:54px; padding:0; border-radius:17px; color:var(--cyan-soft); font-size:19px; font-weight:850; touch-action:none; user-select:none; -webkit-user-select:none; }
+    .control[data-control="jump"] { color:var(--gold); border-color:rgba(242,198,109,.63); border-radius:50%; }
+    .control[data-control="punch"] { color:#fff0d1; }
+    .control[data-control="place"] { color:#a9e1b5; }
+    .control svg { width:22px; height:22px; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
+    .control[aria-pressed="true"] { background:linear-gradient(145deg,rgba(91,177,188,.9),rgba(28,95,111,.94)); border-color:var(--gold); box-shadow:0 0 0 3px rgba(242,198,109,.18); }
+    #modal { position:absolute; inset:0; z-index:5; display:grid; place-items:center; padding:calc(14px + var(--safe-top)) calc(14px + var(--safe-right)) calc(14px + var(--safe-bottom)) calc(14px + var(--safe-left)); background:rgba(2,12,19,.73); backdrop-filter:blur(7px); pointer-events:auto; }
+    #modal[hidden] { display:none; }
+    .modal-card { display:flex; flex-direction:column; gap:12px; width:min(540px,100%); max-height:min(88vh,760px); max-height:min(88dvh,760px); overflow:auto; padding:clamp(16px,3vw,24px); border:1px solid rgba(117,224,233,.72); border-radius:22px; background:linear-gradient(150deg,rgba(17,53,69,.98),rgba(6,24,36,.99)); box-shadow:0 24px 80px #0009,inset 0 1px #ffffff18; touch-action:pan-y; }
+    .modal-head { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; }
+    .modal-kicker { margin:0 0 4px; color:var(--cyan); font-size:10px; font-weight:850; letter-spacing:.16em; text-transform:uppercase; }
+    .modal-card h2 { margin:0; color:#f4fbf8; font-size:clamp(20px,4vw,26px); line-height:1.15; }
+    .modal-copy { margin:0; color:var(--muted); font-size:13px; line-height:1.5; }
+    .icon-close { min-width:42px; min-height:42px; border:1px solid rgba(121,221,232,.35); border-radius:12px; font-size:20px; cursor:pointer; }
+    .modal-actions { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:9px; }
+    .action-button { min-height:46px; padding:10px 12px; border:1px solid rgba(121,221,232,.48); border-radius:13px; background:rgba(29,77,94,.72); color:var(--ink); text-align:left; font-size:13px; font-weight:800; }
+    .action-button:hover { border-color:var(--cyan-soft); background:rgba(48,104,119,.8); }
+    .action-button.primary { border-color:rgba(242,198,109,.72); color:#ffdf9c; background:rgba(104,75,36,.35); }
+    .action-button .action-sub { display:block; margin-top:3px; color:var(--muted); font-size:10px; font-weight:500; }
+    .inventory-search { width:100%; min-height:44px; border:1px solid rgba(121,221,232,.5); border-radius:12px; padding:9px 12px; color:var(--ink); background:rgba(3,17,27,.65); user-select:text; -webkit-user-select:text; }
+    .inventory-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; }
+    .inventory-grid .slot { width:100%; height:72px; border-radius:14px; }
+    .inventory-grid .slot svg { width:32px; height:31px; }
+    .help-list { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+    .help-item { min-height:54px; padding:9px 11px; border:1px solid rgba(121,221,232,.22); border-radius:12px; background:rgba(3,17,27,.4); color:var(--muted); font-size:11px; line-height:1.4; }
+    .help-item strong { display:block; margin-bottom:3px; color:var(--cyan-soft); font-size:12px; }
+    .help-item kbd { padding:1px 4px; border:1px solid rgba(178,223,228,.32); border-radius:4px; color:#fff; background:rgba(3,17,27,.65); font:inherit; }
+    @media (max-width: 700px) {
+      #profile { min-width:0; gap:8px; padding:6px 9px 6px 6px; }
+      .avatar { width:36px; height:36px; flex-basis:36px; border-radius:11px; }
+      .avatar::before { left:10px; top:6px; }
+      .avatar::after { left:5px; }
+      .brand { font-size:13px; }
+      .subbrand { font-size:8px; }
+      #gem-count { font-size:11px; }
+      #world-name { top:calc(18px + var(--safe-top)); left:calc(50% + 40px); max-width:30vw; font-size:9px; padding:7px 10px; }
+      #quest { top:calc(70px + var(--safe-top)); width:min(202px,calc(100vw - 102px)); padding:8px 10px; }
+      .quest-head { font-size:9px; }
+      #quest-copy { font-size:11px; }
+      #action-rail { top:calc(11px + var(--safe-top)); right:calc(10px + var(--safe-right)); gap:6px; }
+      .rail-button { width:44px; height:44px; border-radius:13px; }
+      #log-panel { right:calc(58px + var(--safe-right)); top:calc(10px + var(--safe-top)); }
+      #hotbar { bottom:calc(9px + var(--safe-bottom)); gap:3px; padding:4px; border-radius:15px; }
+      .slot { width:clamp(42px,13.6vw,52px); height:52px; padding:3px 2px; border-radius:11px; }
+      .slot svg { width:24px; height:23px; }
+      .slot .item-name { font-size:7px; }
+      .slot .count { font-size:9px; }
+      #selected-readout { bottom:calc(69px + var(--safe-bottom)); font-size:9px; padding:4px 9px; }
+      #selected-readout { display:none; }
+      #bag-button { bottom:calc(67px + var(--safe-bottom)); min-width:0; min-height:30px; padding:5px 9px; font-size:10px; }
+      #keyboard-hint { display:none; }
+      .touch-cluster { bottom:calc(105px + var(--safe-bottom)); gap:6px; }
+      .control { min-width:46px; width:46px; height:48px; border-radius:14px; font-size:17px; }
+      #move-controls { left:calc(9px + var(--safe-left)); }
+      #action-controls { right:calc(9px + var(--safe-right)); }
+      #status { top:auto; bottom:calc(159px + var(--safe-bottom)); max-width:86vw; font-size:11px; }
     }
-    @media (prefers-reduced-motion: no-preference) { a, button { transition: background-color .15s, color .15s; } }
+    @media (max-width: 360px) {
+      #profile { top:calc(8px + var(--safe-top)); left:calc(8px + var(--safe-left)); }
+      #world-name { top:calc(13px + var(--safe-top)); }
+      #quest { top:calc(61px + var(--safe-top)); left:calc(8px + var(--safe-left)); }
+      .rail-button { width:44px; height:44px; }
+      #action-rail { right:calc(7px + var(--safe-right)); }
+      .control { min-width:44px; width:44px; height:46px; }
+      #action-controls { gap:4px; }
+      #hotbar { gap:2px; }
+      .slot { width:44px; height:48px; }
+      .slot svg { width:21px; height:21px; }
+      .slot .item-name { font-size:6.5px; }
+      #selected-readout { bottom:calc(64px + var(--safe-bottom)); }
+      #bag-button { bottom:calc(62px + var(--safe-bottom)); }
+      .touch-cluster { bottom:calc(104px + var(--safe-bottom)); }
+    }
+    @media (max-height: 470px) and (orientation: landscape) {
+      #profile { top:calc(7px + var(--safe-top)); }
+      #quest { top:calc(65px + var(--safe-top)); max-width:190px; }
+      #world-name { top:calc(11px + var(--safe-top)); }
+      #action-rail { top:calc(7px + var(--safe-top)); gap:4px; }
+      .rail-button { width:44px; height:44px; }
+      #hotbar { bottom:calc(5px + var(--safe-bottom)); }
+      .slot { height:45px; }
+      #selected-readout { display:none; }
+      #bag-button { bottom:calc(73px + var(--safe-bottom)); min-height:34px; }
+      .touch-cluster { bottom:calc(57px + var(--safe-bottom)); }
+      .control { width:46px; min-width:46px; height:44px; }
+      #status { bottom:calc(105px + var(--safe-bottom)); }
+    }
+    body.touch-mode #touch-controls { display:block; }
+    body.touch-mode #keyboard-hint { display:none; }
+    @media (hover:hover) and (pointer:fine) { body:not(.touch-mode) #touch-controls { display:none; } }
+    @media (prefers-reduced-motion: reduce) { *,*::before,*::after { scroll-behavior:auto !important; transition:none !important; } }
+    /* Deterministic SDL tests use only the original canvas-driven interface. */
+    body[data-test="legacy"] #game-shell { display:grid; place-items:center; background:#071724; }
+    body[data-test="legacy"] #canvas { position:relative; inset:auto; width:min(100vw,177.7778vh); height:auto; aspect-ratio:16 / 9; }
+    body[data-test="legacy"] #hud { display:block !important; pointer-events:none; }
+    body[data-test="legacy"] #hud > :not(#status), body[data-test="legacy"] #modal, body[data-test="legacy"] #touch-controls { display:none !important; }
+    body[data-test="legacy"] #status { display:block; top:auto; left:8px; bottom:8px; transform:none; max-width:80vw; font-size:11px; }
   </style>
 </head>
 <body>
-  <header class="site-header">
-    <div class="wrap header-inner">
-      <a class="brand" href="#" aria-label="Growlander beranda"><span class="brand-mark" aria-hidden="true"></span>Growlander</a>
-      <nav aria-label="Navigasi utama"><a href="#main-game">Main</a><a href="#cara-main">Cara main</a></nav>
+  <main id="game-shell" aria-label="Dunia Growlander">
+    <canvas id="canvas" width="1280" height="720" tabindex="0" aria-label="Permainan Growlander. Gunakan tombol arah untuk bergerak dan buka bantuan untuk kontrol.">Browser ini perlu mendukung canvas dan WebAssembly untuk menjalankan Growlander.</canvas>
+    <div id="hud" aria-label="Antarmuka permainan">
+      <section id="profile" class="panel" aria-label="Profil pemain">
+        <span class="avatar" aria-hidden="true"></span>
+        <div class="identity"><span class="brand">Growlander</span><span class="subbrand">Penjelajah dunia</span><span id="gem-count"><i class="gem-shape" aria-hidden="true"></i><span id="gems-value">0</span> permata</span></div>
+      </section>
+      <div id="world-name" class="panel">Dunia Growlander</div>
+      <section id="quest" class="panel" aria-label="Ringkasan progres">
+        <div class="quest-head"><span>Jejak dunia</span><span id="quest-progress" class="quest-progress">0%</span></div>
+        <div id="quest-copy">Mulai jelajahi duniamu</div>
+        <div class="progress-track" aria-hidden="true"><div id="progress-fill"></div></div>
+      </section>
+      <nav id="action-rail" aria-label="Menu permainan">
+        <button id="menu-button" class="rail-button panel clickable" type="button" aria-label="Buka menu" title="Menu">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg><span class="rail-label">Menu</span>
+        </button>
+        <button id="help-button" class="rail-button panel clickable" type="button" aria-label="Bantuan kontrol" title="Bantuan">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.7 9a2.4 2.4 0 1 1 4.2 1.6c-.9.9-1.9 1.2-1.9 2.7M12 17h.01"/></svg><span class="rail-label">Bantuan</span>
+        </button>
+        <button id="log-button" class="rail-button panel clickable" type="button" aria-label="Buka catatan sistem" title="Catatan sistem">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4h13v16H7zM4 7v13h13M10 9h7M10 13h7M10 17h4"/></svg><span class="rail-label">Catatan</span>
+        </button>
+        <button id="fullscreen" class="rail-button panel clickable" type="button" aria-label="Buka layar penuh" title="Layar penuh">
+          <svg id="fullscreen-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 4H4v4M16 4h4v4M4 16v4h4M20 16v4h-4"/></svg><span class="rail-label">Layar penuh</span>
+        </button>
+      </nav>
+      <aside id="log-panel" class="log-panel" aria-label="Catatan sistem" hidden>
+        <div class="log-title"><span>Catatan dunia · lokal</span><button id="log-close" type="button" aria-label="Tutup catatan">×</button></div>
+        <div id="system-log" aria-live="polite"><span class="empty-log">Belum ada aktivitas yang tercatat.</span></div>
+      </aside>
+      <div id="status" role="status" aria-live="polite" aria-atomic="true">Memuat Growlander…</div>
+      <div id="action-toast" class="panel" role="status" aria-live="polite"></div>
+      <div id="selected-readout" aria-live="polite">Kepalan</div>
+      <button id="bag-button" class="panel clickable" type="button" aria-label="Buka tas inventaris">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 8h14l1 12H4L5 8ZM9 8V6a3 3 0 0 1 6 0v2M8 12h8"/></svg>Tas <span class="key-shortcut">· I</span>
+      </button>
+      <section id="hotbar" aria-label="Sabuk item">
+        <button class="slot" type="button" data-item="0" aria-label="Pilih Kepalan" data-selected="true"></button>
+        <button class="slot" type="button" data-item="1" aria-label="Pilih Tanah" data-selected="false"></button>
+        <button class="slot" type="button" data-item="2" aria-label="Pilih Batu" data-selected="false"></button>
+        <button class="slot" type="button" data-item="3" aria-label="Pilih Kayu" data-selected="false"></button>
+        <button class="slot" type="button" data-item="4" aria-label="Pilih Bata" data-selected="false"></button>
+        <button class="slot" type="button" data-item="5" aria-label="Pilih Bibit" data-selected="false"></button>
+      </section>
+      <div id="keyboard-hint"><kbd>A</kbd>/<kbd>D</kbd> gerak · <kbd>Space</kbd> lompat · klik pukul/pasang · <kbd>1–6</kbd> item · <kbd>I</kbd> tas</div>
     </div>
-  </header>
-  <main class="wrap">
-    <section class="intro" aria-labelledby="page-title">
-      <div><p class="eyebrow">Sandbox · Eksplorasi · Berkebun</p><h1 id="page-title">Duniamu, tumbuh sesukamu.</h1><p>Jelajahi, tanam, dan bangun. Satu blok kecil, banyak kemungkinan.</p></div>
-      <span class="tag">Single-player</span>
-    </section>
-    <section class="player" id="main-game" aria-label="Main Growlander">
-      <div id="game-frame" aria-label="Area permainan Growlander">
-        <canvas id="canvas" width="1280" height="720" tabindex="0" aria-label="Game Growlander. Klik atau sentuh untuk bermain; lihat panduan kontrol di bawah." oncontextmenu="event.preventDefault()">Browser ini perlu mendukung canvas dan WebAssembly untuk menjalankan Growlander.</canvas>
-        <button id="exit-fullscreen" type="button">Keluar layar penuh</button>
+    <div id="touch-controls" aria-label="Kontrol sentuh">
+      <div id="move-controls" class="touch-cluster">
+        <button class="control" type="button" data-control="left" aria-label="Bergerak ke kiri" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14 5-7 7 7 7M7 12h12"/></svg></button>
+        <button class="control" type="button" data-control="right" aria-label="Bergerak ke kanan" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m10 5 7 7-7 7M17 12H5"/></svg></button>
       </div>
-      <div id="toolbar">
-        <div class="player-meta"><strong>Kebun Pertama</strong><span>Petualangan single-player</span><span id="status" role="status" aria-live="polite">Memuat game…</span></div>
-        <button id="fullscreen" type="button" aria-label="Buka layar penuh">Layar penuh ↗</button>
+      <div id="action-controls" class="touch-cluster">
+        <button class="control" type="button" data-control="jump" aria-label="Lompat" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 14 7-7 7 7M12 7v12"/></svg></button>
+        <button class="control" type="button" data-control="punch" aria-label="Pukul" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 12V7a2 2 0 0 1 4 0v4-6a2 2 0 0 1 4 0v6-4a2 2 0 0 1 4 0v7c0 5-3 7-7 7h-1c-2 0-3-1-4-3l-2-3a2 2 0 0 1 3-3l2 2"/></svg></button>
+        <button class="control" type="button" data-control="place" aria-label="Pasang item" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 9 5-9 5-9-5 9-5ZM3 12l9 5 9-5M3 16l9 5 9-5"/></svg></button>
       </div>
-    </section>
-    <p class="play-note">Klik atau sentuh area game untuk bermain. Di ponsel, putar ke lanskap atau pilih layar penuh agar kontrol lebih leluasa.</p>
-    <section class="info-grid" id="cara-main" aria-label="Tentang game dan panduan">
-      <div class="about"><p class="eyebrow">Tentang Growlander</p><h2>Mulai kecil. Bangun sesuatu milikmu.</h2><p>Kumpulkan bahan, tanam benih, lalu panen untuk mengembangkan duniamu. Main sendiri dengan ritmemu sendiri, langsung di browser.</p></div>
-      <div>
-        <h2>Cara main</h2>
-        <details open><summary>Keyboard &amp; mouse</summary><dl class="controls"><dt><kbd>A</kbd> <kbd>D</kbd> / <kbd>←</kbd> <kbd>→</kbd></dt><dd>Bergerak</dd><dt><kbd>Spasi</kbd></dt><dd>Melompat</dd><dt>Klik kiri / kanan</dt><dd>Pukul / pasang item</dd><dt><kbd>1</kbd>–<kbd>6</kbd> · <kbd>I</kbd></dt><dd>Pilih item · buka tas</dd><dt><kbd>F5</kbd> / <kbd>F9</kbd></dt><dd>Simpan / muat di dalam game</dd><dt><kbd>Esc</kbd> · <kbd>H</kbd></dt><dd>Menu · bantuan</dd></dl></details>
-        <details><summary>Layar sentuh &amp; progres</summary><p>Gunakan tombol arah dan lompat di game. Buka Tas untuk memilih item, lalu tap tile untuk menanam atau memasang. Tahan tile untuk memukul berulang.</p><p>Progres disimpan di browser ini melalui menu game. Data tidak tersinkron ke perangkat lain; menghapus data situs juga menghapus simpanan.</p></details>
-      </div>
+    </div>
+    <section id="modal" aria-label="Dialog permainan" hidden>
+      <article id="modal-content" class="modal-card" role="dialog" aria-modal="true" aria-labelledby="modal-title"></article>
     </section>
   </main>
-  <footer><div class="wrap"><span><strong>Growlander</strong> — ruang kecil untuk ide besarmu.</span><span>Game browser · Single-player</span></div></footer>
   <script>
-    const isTouchDevice = (navigator.maxTouchPoints || 0) > 0 ||
-      window.matchMedia('(pointer: coarse)').matches;
-    // Deterministic SDL integration tests; neither reads nor writes player saves.
-    const testMode = new URLSearchParams(location.search).get('test');
-    const gameArguments = testMode === 'touch' ? ['--touch-test'] :
-      testMode === 'smoke' ? ['--smoke-test'] :
-      testMode === 'wide' ? ['--touch-wide-test'] :
-      (isTouchDevice ? ['--mobile-preview'] : []);
-    var Module = {
-      canvas: document.getElementById('canvas'),
-      arguments: gameArguments,
-      locateFile: (path, prefix) => {
-        const version = document.documentElement.dataset.runtimeVersion;
-        return prefix + path + (version ? '?v=' + version : '');
-      },
-      print: (...args) => {
-        console.log(...args);
-        if (String(args[0]).startsWith('SDL ')) {
-          document.getElementById('status').textContent = args.join(' ');
+    (() => {
+      'use strict';
+      const $ = (id) => document.getElementById(id);
+      const canvas = $('canvas');
+      const statusNode = $('status');
+      const isTouchDevice = (navigator.maxTouchPoints || 0) > 0 || window.matchMedia('(pointer: coarse)').matches;
+      const testMode = new URLSearchParams(location.search).get('test');
+      const legacyTest = ['touch', 'smoke', 'wide'].includes(testMode);
+      if (legacyTest) document.body.dataset.test = 'legacy';
+      if (isTouchDevice) document.body.classList.add('touch-mode');
+
+      const itemNames = ['Kepalan', 'Tanah', 'Batu', 'Kayu', 'Bata', 'Bibit'];
+      const itemIcons = [
+        '<svg viewBox="0 0 32 32" aria-hidden="true"><path d="M9 15V9a2 2 0 0 1 4 0v5-8a2 2 0 0 1 4 0v8-6a2 2 0 0 1 4 0v7l1-3a2 2 0 0 1 4 1l-1 8c-.5 4-3 6-7 6h-4c-2 0-3-1-4-3l-4-6a2 2 0 0 1 3-3l3 3"/></svg>',
+        '<svg viewBox="0 0 32 32" aria-hidden="true"><path d="M5 9h8V5h8v5h6v7h-6v5h-8v-4H5zM9 13h.01M23 14h.01M14 24v3M19 24v3"/></svg>',
+        '<svg viewBox="0 0 32 32" aria-hidden="true"><path d="m5 10 7-6 11 2 5 8-5 11-12 3-6-8zM12 4l1 9 10 1M6 20l8-7 9 12M23 6l-1 8 6 0"/></svg>',
+        '<svg viewBox="0 0 32 32" aria-hidden="true"><path d="M6 5h20v7H6zM6 14h20v7H6zM6 23h20v5H6zM11 5v7M21 14v7M13 23v5"/></svg>',
+        '<svg viewBox="0 0 32 32" aria-hidden="true"><path d="M4 7h24v7H4zM4 18h11v7H4zM18 18h10v7H18zM10 7v7M23 7v7"/></svg>',
+        '<svg viewBox="0 0 32 32" aria-hidden="true"><path d="M16 27c-7-3-10-9-7-15 2-4 7-5 10-2 5 0 7 5 5 10-1 4-4 6-8 7ZM16 27c0-7 1-12 6-17M15 16c-4-1-6-4-6-7 4 0 7 2 8 6M18 14c0-4 2-7 6-8 0 4-1 7-5 9"/></svg>'
+      ];
+      const iconsMarkup = itemNames.map((name, i) => `<span class="item-icon">${itemIcons[i]}</span><span class="item-name">${name}</span>`);
+      const slots = [...document.querySelectorAll('[data-item]')];
+      slots.forEach((slot, i) => { slot.innerHTML = `<span class="key-hint">${i + 1}</span>${iconsMarkup[i]}`; });
+      const inventoryButton = $('bag-button');
+      const closeButtons = () => document.querySelectorAll('#modal button, #modal input');
+      const bridge = window.growlander = {
+        commands: [],
+        input: { left: false, right: false, jump: false, punch: false, place: false },
+        state: null,
+        render(s) {
+          if (!s || typeof s !== 'object') return;
+          bridge.state = s;
+          if (typeof window.growlanderTouch === 'boolean' || typeof window.GROWLANDER_TOUCH === 'boolean') {
+            document.body.classList.toggle('touch-mode', !!(window.growlanderTouch ?? window.GROWLANDER_TOUCH));
+          }
+          paintState(s);
         }
-      },
-      printErr: (...args) => console.error(...args),
-      setStatus: (text) => {
-        const status = document.getElementById('status');
-        if (status) status.textContent = text || '';
-      },
-      onRuntimeInitialized: () => {
-        document.getElementById('status').textContent = 'Siap dimainkan';
+      };
+      const queue = (code) => { clearInputs(); bridge.commands.push(Number(code)); };
+      let logEntries = [];
+      let searchText = '';
+      let lastSystemMessage = '';
+      let toastTimeout;
+      let previousMetrics = null;
+      let lastRenderedModal = '';
+      let modalSignature = '';
+      let focusReturn = false;
+      let fullscreenBusy = false;
+      const logPanel = $('log-panel');
+      const logContent = $('system-log');
+      const modal = $('modal');
+      const modalContent = $('modal-content');
+
+      function safeCount(value) { const n = Number(value); return Number.isFinite(n) ? Math.max(0, Math.floor(n)) : 0; }
+      function addLog(text, elapsed) {
+        if (!text) return;
+        const sec = Number.isFinite(Number(elapsed)) ? Math.max(0, Math.floor(Number(elapsed))) : null;
+        const stamp = sec === null ? 'SYS' : `${String(Math.floor(sec / 60)).padStart(2,'0')}:${String(sec % 60).padStart(2,'0')}`;
+        logEntries.push({ stamp, text: String(text).slice(0, 180) });
+        if (logEntries.length > 24) logEntries = logEntries.slice(-24);
+        renderLog();
       }
-    };
-    const canvas = document.getElementById('canvas');
-    canvas.addEventListener('pointerdown', () => canvas.focus({ preventScroll: true }));
-    // SDL listens on the window. Do not send page-navigation keys into the game.
-    const gameKeys = new Set(['KeyA', 'KeyD', 'KeyW', 'KeyI', 'KeyH', 'KeyR', 'Space',
-      'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'F5', 'F9', 'Escape', 'Enter',
-      'Digit1', 'Digit2', 'Digit3', 'Digit4', 'Digit5', 'Digit6']);
-    const pageKey = (event) => {
-      if (document.activeElement !== canvas && gameKeys.has(event.code)) event.stopImmediatePropagation();
-    };
-    window.addEventListener('keydown', pageKey);
-    window.addEventListener('keypress', pageKey);
-    // Keep game keys from scrolling the page, but leave normal page navigation alone.
-    canvas.addEventListener('keydown', (event) => {
-      if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'F5', 'F9'].includes(event.code)) event.preventDefault();
-    });
-    document.getElementById('exit-fullscreen').addEventListener('click', () => document.exitFullscreen());
-    document.addEventListener('fullscreenchange', () => canvas.focus({ preventScroll: true }));
-    document.getElementById('fullscreen').addEventListener('click', async () => {
-      const frame = document.getElementById('game-frame');
-      if (!frame.requestFullscreen) {
-        document.getElementById('status').textContent = 'Layar penuh tidak didukung browser ini. Coba posisi lanskap.';
-        return;
+      function renderLog() {
+        if (!logEntries.length) { logContent.innerHTML = '<span class="empty-log">Belum ada aktivitas yang tercatat.</span>'; return; }
+        logContent.innerHTML = logEntries.map((entry) => `<div class="log-entry"><time>${escapeHtml(entry.stamp)}</time><span>${escapeHtml(entry.text)}</span></div>`).join('');
+        logContent.scrollTop = logContent.scrollHeight;
       }
-      try { await frame.requestFullscreen(); canvas.focus({ preventScroll: true }); }
-      catch (_) { document.getElementById('status').textContent = 'Layar penuh tidak tersedia. Game tetap bisa dimainkan di halaman ini.'; }
-    });
+      function escapeHtml(value) { return String(value).replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+      function paintState(s) {
+        const selected = Math.max(0, Math.min(5, safeCount(s.selected)));
+        const inventory = Array.isArray(s.inventory) ? s.inventory : [];
+        setText($('gems-value'), String(safeCount(s.gems)));
+        const worldName = String(s.world || 'Kebun Pertama');
+        if ($('world-name').textContent !== worldName) { $('world-name').textContent = worldName; $('world-name').title = worldName; }
+        const broken = safeCount(s.broken), placed = safeCount(s.placed), planted = safeCount(s.planted), harvested = safeCount(s.harvested);
+        const actions = broken + placed + planted + harvested;
+        setText($('quest-progress'), `${actions} aksi`);
+        const progress = [broken,placed,planted,harvested].filter(n => n>0).length * 25;
+        if ($('progress-fill').style.width !== `${progress}%`) $('progress-fill').style.width = `${progress}%`;
+        setText($('quest-copy'), `${broken} rusak · ${placed} pasang · ${planted} tanam · ${harvested} panen`);
+        slots.forEach((slot, i) => {
+          const isSelected = String(i === selected);
+          if (slot.dataset.selected !== isSelected) slot.dataset.selected = isSelected;
+          const countNode = slot.querySelector('.count');
+          const count = safeCount(inventory[i]);
+          if (i > 0 && count > 0) {
+            if (countNode) setText(countNode, String(count));
+            else slot.insertAdjacentHTML('beforeend', `<span class="count">${count}</span>`);
+          } else if (countNode) countNode.remove();
+          const pressed = String(i === selected);
+          if (slot.getAttribute('aria-pressed') !== pressed) slot.setAttribute('aria-pressed', pressed);
+        });
+        setText($('selected-readout'), itemNames[selected]);
+        const nextMetrics = { broken, placed, planted, harvested, gems: safeCount(s.gems) };
+        if (previousMetrics) {
+          for (const key of ['broken','placed','planted','harvested','gems']) {
+            const delta = nextMetrics[key] - previousMetrics[key];
+            if (delta > 0) {
+              const labels = { broken: 'Blok dihancurkan', placed: 'Blok dipasang', planted: 'Bibit ditanam', harvested: 'Panen terkumpul', gems: 'Permata terkumpul' };
+              addLog(`${labels[key]}${delta > 1 ? ` ×${delta}` : ''}`, s.elapsed);
+            }
+          }
+        }
+        previousMetrics = nextMetrics;
+        if (s.message && String(s.message) !== lastSystemMessage) {
+          lastSystemMessage = String(s.message);
+          addLog(lastSystemMessage, s.elapsed);
+          $('action-toast').textContent=lastSystemMessage;
+          $('action-toast').dataset.visible='true';
+          clearTimeout(toastTimeout);
+          toastTimeout=setTimeout(() => { $('action-toast').dataset.visible='false'; },3000);
+        } else if (!s.message) lastSystemMessage = '';
+        renderModal(s);
+      }
+      function slotMarkup(i, inventory, selected) {
+        const count = safeCount(inventory[i]);
+        return `<button class="slot" type="button" data-item="${i}" data-selected="${i === selected}" aria-label="Pilih ${itemNames[i]}${count ? `, ${count} tersedia` : ''}" aria-pressed="${i === selected}"><span class="key-hint">${i + 1}</span>${itemIcons[i]}${i ? `<span class="count">${count}</span>` : ''}<span class="item-name">${itemNames[i]}</span></button>`;
+      }
+      function modalShell(kicker, title, copy, body) {
+        return `<header class="modal-head"><div><p class="modal-kicker">${kicker}</p><h2 id="modal-title">${title}</h2></div><button class="icon-close" type="button" data-modal-close aria-label="Tutup dialog">×</button></header><p class="modal-copy">${copy}</p>${body}`;
+      }
+      function renderModal(s) {
+        const bag = !!s.bag, help = !!s.help, menu = !!s.paused && !bag && !help;
+        const kind = bag ? 'bag' : help ? 'help' : menu ? 'menu' : '';
+        if (!kind) { modal.hidden = true; lastRenderedModal = ''; modalSignature = ''; if (focusReturn) { focusReturn = false; requestAnimationFrame(() => canvas.focus({ preventScroll: true })); } return; }
+        if (modal.hidden) modal.hidden = false;
+        const inv = Array.isArray(s.inventory) ? s.inventory : [];
+        const signature = `${kind}|${safeCount(s.selected)}|${inv.slice(0,6).map(safeCount).join(',')}`;
+        if (signature === modalSignature) return;
+        const kindChanged = kind !== lastRenderedModal;
+        lastRenderedModal = kind;
+        modalSignature = signature;
+        if (kind === 'bag') {
+          const filtered = itemNames.map((name, i) => ({ name, i })).filter(({ name }) => name.toLowerCase().includes(searchText.toLowerCase()));
+          const grid = filtered.length ? `<div class="inventory-grid">${filtered.map(({ i }) => slotMarkup(i, inv, Math.max(0,Math.min(5,safeCount(s.selected))))).join('')}</div>` : '<p class="modal-copy">Tidak ada item yang cocok.</p>';
+          modalContent.innerHTML = modalShell('Inventaris', 'Tas perjalanan', 'Pilih item untuk memasukkannya ke sabuk. Jumlah dan pilihan selalu mengikuti keadaan dunia.', `<input class="inventory-search" id="inventory-search" type="search" autocomplete="off" placeholder="Cari item…" aria-label="Cari item" value="${escapeHtml(searchText)}"><div id="inventory-results">${grid}</div><div class="modal-actions"><button class="action-button primary" type="button" data-modal-close>Lanjut bermain<span class="action-sub">Tutup tas</span></button></div>`);
+          const input = $('inventory-search');
+          input.addEventListener('input', () => {
+            searchText = input.value;
+            const current=bridge.state || s;
+            const matches=itemNames.map((name,i)=>({name,i})).filter(({name})=>name.toLowerCase().includes(searchText.toLowerCase()));
+            $('inventory-results').innerHTML=matches.length ? `<div class="inventory-grid">${matches.map(({i})=>slotMarkup(i,current.inventory,current.selected)).join('')}</div>` : '<p class="modal-copy">Tidak ada item yang cocok.</p>';
+            $('inventory-results').querySelectorAll('[data-item]').forEach(button=>button.addEventListener('click',()=>{queue(10+Number(button.dataset.item));focusReturn=true;}));
+          });
+          input.addEventListener('keydown', (event) => { if (event.key === 'Escape') { event.preventDefault(); queue(4); } });
+          if (kindChanged || !modal.contains(document.activeElement)) requestAnimationFrame(() => input.focus({ preventScroll:true }));
+        } else if (kind === 'help') {
+          modalContent.innerHTML = modalShell('Panduan', 'Cara bermain', 'Jelajahi ruang yang terbuka, kumpulkan bahan, lalu bentuk dunia sesuai idemu.', `<div class="help-list"><div class="help-item"><strong>Bergerak</strong><kbd>A</kbd>/<kbd>D</kbd> atau <kbd>←</kbd>/<kbd>→</kbd>; tombol arah di layar sentuh.</div><div class="help-item"><strong>Melompat</strong><kbd>Space</kbd> atau tombol panah atas; gunakan tombol lompat di ponsel.</div><div class="help-item"><strong>Pukul & pasang</strong>Klik/tap tile terisi untuk memukul; tile kosong memakai item pilihan. Tahan untuk pukulan berulang. Klik kanan tetap memasang.</div><div class="help-item"><strong>Pilih item</strong><kbd>1–6</kbd> untuk sabuk; <kbd>I</kbd> membuka tas inventaris.</div><div class="help-item"><strong>Menu & simpanan</strong><kbd>Esc</kbd> membuka menu. Simpan/muat melalui menu; simpanan lokal di perangkat ini.</div><div class="help-item"><strong>Jeda & tampilan</strong>Menu menjeda permainan. Layar penuh dapat dibuka atau ditutup dari tombol sudut.</div></div><div class="modal-actions"><button class="action-button primary" type="button" data-modal-close>Mengerti<span class="action-sub">Kembali ke dunia</span></button></div>`);
+        } else {
+          modalContent.innerHTML = modalShell('Dunia dijeda', 'Menu perjalanan', 'Simpanan bersifat lokal pada browser ini. Memuat atau menghidupkan ulang akan mengubah keadaan permainan.', `<div class="modal-actions"><button class="action-button primary" type="button" data-command="4">Lanjut bermain<span class="action-sub">Kembali ke dunia</span></button><button class="action-button" type="button" data-command="5">Simpan dunia<span class="action-sub">Simpan progres saat ini</span></button><button class="action-button" type="button" data-command="6">Muat simpanan<span class="action-sub">Ganti perubahan sejak simpan terakhir</span></button><button class="action-button" type="button" data-command="7">Kembali ke rumah<span class="action-sub">Respawn tanpa menghapus dunia</span></button></div>`);
+        }
+        modalContent.querySelectorAll('[data-item]').forEach((button) => button.addEventListener('click', () => { const i = Number(button.dataset.item); if (Number.isInteger(i) && i >= 0 && i <= 5) { queue(10 + i); focusReturn = true; } }));
+        modalContent.querySelectorAll('[data-modal-close]').forEach((button) => button.addEventListener('click', () => { queue(4); focusReturn = true; }));
+        modalContent.querySelectorAll('[data-command]').forEach((button) => button.addEventListener('click', () => queue(Number(button.dataset.command))));
+        if (kind !== 'bag' || kindChanged) requestAnimationFrame(() => modalContent.querySelector('button')?.focus({preventScroll:true}));
+      }
+      function setText(node, value) { if (node.textContent !== value) node.textContent = value; }
+      function focusCanvasUnlessModal() { if (modal.hidden && logPanel.hidden) requestAnimationFrame(() => canvas.focus({ preventScroll:true })); }
+      function bindCommand(button, command) {
+        button.addEventListener('click', (event) => { event.stopPropagation(); queue(command); focusReturn = true; });
+      }
+      bindCommand($('menu-button'), 3);
+      bindCommand($('help-button'), 2);
+      bindCommand(inventoryButton, 1);
+      slots.forEach((slot) => slot.addEventListener('click', () => { queue(10 + Number(slot.dataset.item)); focusCanvasUnlessModal(); }));
+      $('log-button').addEventListener('click', () => { logPanel.hidden = !logPanel.hidden; if (!logPanel.hidden) { logPanel.setAttribute('role','region'); $('log-close').focus({preventScroll:true}); } else focusCanvasUnlessModal(); });
+      $('log-close').addEventListener('click', () => { logPanel.hidden = true; focusCanvasUnlessModal(); });
+      modal.addEventListener('pointerdown', (event) => { event.stopPropagation(); });
+      modal.addEventListener('click', (event) => { if (event.target === modal) { queue(4); focusReturn=true; } });
+      ['touchstart','touchmove'].forEach(type => modal.addEventListener(type, event => event.stopPropagation(), {passive:true}));
+      modalContent.addEventListener('click', (event) => event.stopPropagation());
+      modal.addEventListener('keydown', (event) => {
+        if (event.key === 'Tab') {
+          const focusable = [...closeButtons()].filter((el) => !el.disabled && el.offsetParent !== null);
+          if (!focusable.length) return;
+          const first = focusable[0], last = focusable[focusable.length - 1];
+          if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+          else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+        }
+      });
+
+      const activePointers = new Map();
+      const inputNames = ['left','right','jump','punch','place'];
+      function setInput(name, value) { if (inputNames.includes(name)) bridge.input[name] = !!value; }
+      function clearInputs() {
+        for (const name of inputNames) setInput(name, false);
+        activePointers.clear();
+        document.querySelectorAll('[data-control]').forEach((button) => button.setAttribute('aria-pressed','false'));
+      }
+      document.querySelectorAll('[data-control]').forEach((button) => {
+        const name = button.dataset.control;
+        const release = (event) => {
+          const pointers = activePointers.get(name);
+          if (!pointers) return;
+          pointers.delete(event.pointerId);
+          if (pointers.size === 0) { activePointers.delete(name); setInput(name, false); button.setAttribute('aria-pressed','false'); }
+          event.stopPropagation();
+        };
+        button.addEventListener('pointerdown', (event) => {
+          event.preventDefault(); event.stopPropagation();
+          if (!activePointers.has(name)) activePointers.set(name, new Set());
+          activePointers.get(name).add(event.pointerId);
+          setInput(name, true); button.setAttribute('aria-pressed','true');
+          try { button.setPointerCapture(event.pointerId); } catch (_) {}
+        });
+        button.addEventListener('pointerup', release);
+        button.addEventListener('pointercancel', release);
+        button.addEventListener('lostpointercapture', release);
+        button.addEventListener('click', (event) => { event.preventDefault(); event.stopPropagation(); });
+      });
+      document.querySelectorAll('#hud button, #modal button, #touch-controls button').forEach((button) => {
+        button.addEventListener('pointerdown', (event) => event.stopPropagation());
+        button.addEventListener('touchstart', (event) => event.stopPropagation(), { passive: true });
+        button.addEventListener('touchmove', (event) => event.stopPropagation(), { passive: true });
+      });
+      canvas.addEventListener('pointerdown', (event) => {
+        canvas.focus({ preventScroll:true });
+        try { canvas.setPointerCapture(event.pointerId); } catch (_) {}
+      });
+      canvas.addEventListener('contextmenu', (event) => event.preventDefault());
+      window.addEventListener('pointercancel', clearInputs);
+      window.addEventListener('blur', clearInputs);
+      document.addEventListener('visibilitychange', () => { if (document.hidden) clearInputs(); });
+      window.addEventListener('resize', clearInputs, { passive:true });
+      window.addEventListener('orientationchange', clearInputs, { passive:true });
+
+      const gameKeys = new Set(['KeyA','KeyD','KeyW','KeyI','KeyH','KeyR','Enter','Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','F5','F9','Escape','Digit1','Digit2','Digit3','Digit4','Digit5','Digit6']);
+      const isDomControl = (target) => target instanceof Element && !!target.closest('button,input,textarea,select,[role="dialog"],a,[contenteditable="true"]');
+      window.addEventListener('keydown', (event) => {
+        if (legacyTest) return;
+        if (event.repeat && ['KeyI','KeyH','Escape'].includes(event.code)) { event.preventDefault(); event.stopImmediatePropagation(); return; }
+        const target = event.target;
+        if (['KeyI','KeyH','Escape','F5','F9','Digit1','Digit2','Digit3','Digit4','Digit5','Digit6'].includes(event.code)) event.stopImmediatePropagation();
+        if (isDomControl(target) && target !== canvas) {
+          if (event.code === 'Escape' && !modal.hidden) { event.preventDefault(); queue(4); focusReturn = true; }
+          event.stopImmediatePropagation();
+          return;
+        }
+        if (gameKeys.has(event.code)) {
+          if (event.code === 'KeyI') { event.preventDefault(); queue(1); focusReturn = true; }
+          else if (event.code === 'KeyH') { event.preventDefault(); queue(2); focusReturn = true; }
+          else if (event.code === 'Escape') { event.preventDefault(); queue(bridge.state?.paused || bridge.state?.bag || bridge.state?.help ? 4 : 3); focusReturn = true; }
+          else if (/^Digit[1-6]$/.test(event.code)) { event.preventDefault(); queue(9 + Number(event.code.slice(-1))); }
+          else if (event.code === 'F5') { event.preventDefault(); queue(5); }
+          else if (event.code === 'F9') { event.preventDefault(); queue(6); }
+          else if (['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(event.code)) event.preventDefault();
+        }
+      }, true);
+      window.addEventListener('keypress', (event) => {
+        if (isDomControl(event.target) && event.target !== canvas) event.stopImmediatePropagation();
+      }, true);
+
+      const fullscreenButton = $('fullscreen');
+      function updateFullscreenLabel() {
+        const active = document.fullscreenElement === $('game-shell');
+        fullscreenButton.setAttribute('aria-label', active ? 'Keluar dari layar penuh' : 'Buka layar penuh');
+        fullscreenButton.title = active ? 'Keluar layar penuh' : 'Layar penuh';
+        const label = fullscreenButton.querySelector('.rail-label');
+        if (label) label.textContent = active ? 'Keluar layar penuh' : 'Layar penuh';
+        $('fullscreen-icon').innerHTML = active ? '<path d="M9 4v5H4M15 4v5h5M4 15h5v5M20 15h-5v5"/>' : '<path d="M8 4H4v4M16 4h4v4M4 16v4h4M20 16v4h-4"/>';
+      }
+      fullscreenButton.addEventListener('click', async () => {
+        if (fullscreenBusy) return;
+        fullscreenBusy = true;
+        try {
+          if (document.fullscreenElement) await document.exitFullscreen();
+          else if ($('game-shell').requestFullscreen) await $('game-shell').requestFullscreen();
+          else { statusNode.dataset.kind = 'error'; statusNode.textContent = 'Layar penuh tidak didukung browser ini.'; }
+        } catch (_) { statusNode.dataset.kind = 'error'; statusNode.textContent = 'Layar penuh tidak tersedia; permainan tetap berjalan.'; }
+        finally { fullscreenBusy = false; updateFullscreenLabel(); focusCanvasUnlessModal(); }
+      });
+      document.addEventListener('fullscreenchange', () => { updateFullscreenLabel(); clearInputs(); });
+      const pointerMedia = window.matchMedia('(pointer: coarse)');
+      pointerMedia.addEventListener?.('change', (event) => { if (!legacyTest) document.body.classList.toggle('touch-mode', isTouchDevice || event.matches); });
+
+      if (!legacyTest) requestAnimationFrame(() => canvas.focus({ preventScroll:true }));
+      renderLog();
+
+      const gameArguments = testMode === 'touch' ? ['--touch-test'] :
+        testMode === 'smoke' ? ['--smoke-test'] :
+        testMode === 'wide' ? ['--touch-wide-test'] :
+        (isTouchDevice ? ['--mobile-preview'] : []);
+      window.Module = {
+        canvas,
+        arguments: gameArguments,
+        locateFile: (path, prefix) => {
+          const version = document.documentElement.dataset.runtimeVersion;
+          return prefix + path + (version ? '?v=' + encodeURIComponent(version) : '');
+        },
+        print: (...args) => {
+          console.log(...args);
+          if (String(args[0] ?? '').startsWith('SDL ')) {
+            statusNode.dataset.kind = 'info';
+            statusNode.textContent = args.join(' ');
+          }
+        },
+        printErr: (...args) => {
+          console.error(...args);
+          statusNode.dataset.kind = 'error';
+          statusNode.textContent = args.join(' ') || 'Terjadi kesalahan saat menjalankan Growlander.';
+        },
+        setStatus: (text) => {
+          if (text) { statusNode.dataset.kind = 'info'; statusNode.textContent = String(text); }
+          else if (!statusNode.textContent.startsWith('SDL ')) { statusNode.textContent = ''; delete statusNode.dataset.kind; }
+        },
+        onRuntimeInitialized: () => {
+          // The runtime calls the DOM bridge from its frame loop; do not inspect WASM exports here.
+          if (statusNode.textContent === 'Memuat Growlander…') statusNode.textContent = '';
+        }
+      };
+    })();
+    var Module = window.Module;
   </script>
   {{{ SCRIPT }}}
 </body>
