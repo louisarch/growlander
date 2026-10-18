@@ -1,6 +1,26 @@
 # Growlander
 
-Growlander adalah game platformer 2D lokal berbasis C++17, SDL2, dan SDL2_ttf. Dunia awal dibuat secara prosedural (100 × 60 tile); permainan tidak memakai server atau akun. Aset visual dibuat sendiri dan tidak menyalin aset berhak cipta Growtopia.
+Growlander adalah game platformer 2D lokal berbasis C++17, SDL2 (minimal 2.0.18), dan SDL2_ttf. Dunia awal dibuat secara prosedural (100 × 60 tile); permainan tidak memakai server atau akun. Aset visual dibuat sendiri dan tidak menyalin aset berhak cipta Growtopia.
+
+## Preview Android — untuk tinjauan pribadi
+
+Revisi ini memakai landscape 1280 × 720, kontrol sentuh dua jari, hotbar enam slot, dan HUD ringkas. Checklist besar, detail dunia, nama di atas avatar, serta legenda keyboard permanen dihilangkan. Petunjuk satu baris menghilang setelah gerak, lompat, dan aksi dicoba; pesan aksi hanya tampil sementara. Inventaris, bantuan, dan menu tampil sebagai panel yang menjeda dunia.
+
+- Kiri bawah: gerak kiri/kanan. Kanan bawah: lompat dan pukul/panen; di atasnya: pasang/tanam.
+- Sentuh tile untuk memilih target, pilih item di hotbar, lalu tahan tombol aksi. Gerak dan lompat bisa dilakukan bersama dengan dua jari.
+- `Tas`, `Bantu`, dan `Menu` membuka panel; `Tutup` kembali bermain. Menu menyediakan simpan, lanjut, simpan & keluar, serta kembali ke rumah.
+- Saat aplikasi kehilangan fokus atau masuk latar belakang, input dibersihkan, game dijeda, dan dunia disimpan lokal. Pertumbuhan tidak berjalan saat jeda.
+- Keyboard dan mouse desktop tetap bekerja. Tampilan menjaga rasio landscape; perangkat sangat lebar dapat memiliki letterbox.
+
+Jalur build Android ada di [`android/`](android/). Catatan singkat preview dan batas uji ada di [`docs/mobile-preview.md`](docs/mobile-preview.md); instruksi Android ada di [`docs/android-build.md`](docs/android-build.md). Tidak ada multiplayer, server, akun, ataupun izin internet yang ditambahkan. Revisi preview disimpan di repositori privat atas permintaan Louis; ini belum merupakan APK Android teruji.
+
+Untuk melihat tata letak sentuh di Linux:
+
+```sh
+./build/growlander --mobile-preview
+# Uji alur gameplay lewat event sentuh SDL, tanpa save pemain:
+xvfb-run -a ./build/growlander --touch-test --screenshot touch.bmp
+```
 
 ## Dependensi
 
@@ -45,7 +65,7 @@ sudo apt install xvfb xauth xdotool python3
 SDL_RENDER_DRIVER=software xvfb-run -a python3 tests/native_ui_test.py build/growlander
 ```
 
-Opsi `--screenshot <path>` menyimpan tangkapan layar; `--save <path>` memilih lokasi save yang menimpa lokasi bawaan. Tanpa override, save lokal menggunakan `SDL_GetPrefPath("Growlander", "Growlander")/world.glw`.
+Opsi tambahan `--mobile-preview` menampilkan petunjuk sentuh; `--touch-test` menjalankan simulasi multitouch deterministik tanpa membaca/menulis save pemain. Opsi `--screenshot <path>` menyimpan tangkapan layar; `--save <path>` memilih lokasi save yang menimpa lokasi bawaan. Tanpa override, save lokal menggunakan `SDL_GetPrefPath("Growlander", "Growlander")/world.glw`.
 
 ## Kontrol
 

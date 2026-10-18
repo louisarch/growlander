@@ -1,0 +1,10 @@
+Internal ctest changing into directory: /workspace/growlander/build-mobile-verify
+Test project /workspace/growlander/build-mobile-verify
+    Start 1: growlander_core_tests
+1/2 Test #1: growlander_core_tests ............   Passed    0.01 sec
+    Start 2: growlander_touch_tests
+2/2 Test #2: growlander_touch_tests ...........   Passed    0.00 sec
+
+100% tests passed, 0 tests failed out of 2
+
+Total Test time (real) =   0.02 sec

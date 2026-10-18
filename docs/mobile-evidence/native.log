@@ -1,0 +1,12 @@
+PASS: jendela SDL terbuka
+PASS: tombol D menggerakkan avatar
+PASS: tombol Spasi melompat
+PASS: inventaris menjeda gerak dan waktu dunia
+PASS: bantuan menjeda waktu dunia
+PASS: hotbar 6 dan klik kanan tetap akurat setelah resize
+Menunggu tanaman tumbuh 18 detik waktu nyata...
+PASS: panen native menambahkan hasil ke inventaris
+PASS: F9 memulihkan posisi simpanan
+PASS: menu Simpan & keluar menutup game dengan sukses
+PASS: save tetap tersedia untuk sesi selanjutnya
+10 native UI checks, 0 failures

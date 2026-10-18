@@ -1,0 +1,6 @@
+.gradle/
+local.properties
+.bootstrap-cache/
+app/build/
+app/src/main/jni/SDL/
+app/src/main/jni/SDL_ttf/

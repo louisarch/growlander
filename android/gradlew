@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+GRADLE_VERSION="8.9"
+GRADLE_SHA256="d725d707bfabd4dfdc958c624003b3c80accc03f7037b5122c4b1d0ef15cecab"
+GRADLE_HOME_BASE="${GRADLE_USER_HOME:-$HOME/.gradle}/manus-bootstrap"
+GRADLE_HOME="$GRADLE_HOME_BASE/gradle-$GRADLE_VERSION"
+ARCHIVE="$GRADLE_HOME_BASE/gradle-$GRADLE_VERSION-bin.zip"
+mkdir -p "$GRADLE_HOME_BASE"
+
+if [[ ! -x "$GRADLE_HOME/bin/gradle" ]]; then
+    if [[ ! -f "$ARCHIVE" ]] || ! echo "$GRADLE_SHA256  $ARCHIVE" | sha256sum --check --status; then
+        rm -f "$ARCHIVE"
+        curl --fail --location --retry 3 --output "$ARCHIVE" \
+            "https://services.gradle.org/distributions/gradle-$GRADLE_VERSION-bin.zip"
+    fi
+    echo "$GRADLE_SHA256  $ARCHIVE" | sha256sum --check --status || {
+        echo "Gradle distribution SHA-256 mismatch." >&2
+        rm -f "$ARCHIVE"
+        exit 1
+    }
+    unzip -q -o "$ARCHIVE" -d "$GRADLE_HOME_BASE"
+fi
+exec "$GRADLE_HOME/bin/gradle" "$@"

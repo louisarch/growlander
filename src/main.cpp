@@ -1,4 +1,5 @@
 #include "game.hpp"
+#include "touch.hpp"
 #include <SDL.h>
 #include <SDL_ttf.h>
 #include <algorithm>
@@ -11,7 +12,7 @@
 #include <vector>
 
 namespace {
-constexpr int W = 1280, H = 800, T = 40;
+constexpr int W = 1280, H = 720, T = 40;
 struct Color {
   Uint8 r, g, b, a = 255;
 };
@@ -198,6 +199,9 @@ struct Art {
   }
 };
 std::string findFont() {
+#ifdef __ANDROID__
+  return "DejaVuSans.ttf"; // SDL_RWops reads packaged Android assets.
+#endif
   char *base = SDL_GetBasePath();
   std::string path = base ? base : "";
   SDL_free(base);
@@ -228,11 +232,17 @@ bool screenshot(SDL_Renderer *r, const std::string &path) {
 } // namespace
 
 int main(int argc, char **argv) {
-  bool smoke = false;
+  bool smoke = false, touchTest = false, mobilePreview = false, wideTest = false;
   std::string shot, savePath;
   for (int i = 1; i < argc; i++) {
     std::string a = argv[i];
-    if (a == "--smoke-test")
+    if (a == "--mobile-preview")
+      mobilePreview = true;
+    else if (a == "--touch-wide-test")
+      wideTest = touchTest = smoke = mobilePreview = true;
+    else if (a == "--touch-test")
+      touchTest = smoke = mobilePreview = true;
+    else if (a == "--smoke-test")
       smoke = true;
     else if ((a == "--screenshot" || a == "--save") && i + 1 < argc) {
       if (a == "--save")
@@ -241,10 +251,16 @@ int main(int argc, char **argv) {
         shot = argv[++i];
     } else {
       std::cerr << "Penggunaan: growlander [--smoke-test] [--screenshot "
-                   "file.bmp] [--save world.glw]\n";
+                   "file.bmp] [--save world.glw] [--mobile-preview] [--touch-test] [--touch-wide-test]\n";
       return 2;
     }
   }
+  SDL_SetHint(SDL_HINT_TOUCH_MOUSE_EVENTS, "0");
+  SDL_SetHint(SDL_HINT_MOUSE_TOUCH_EVENTS, "0");
+  SDL_SetHint(SDL_HINT_ORIENTATIONS, "LandscapeLeft LandscapeRight");
+#ifdef __ANDROID__
+  mobilePreview = true;
+#endif
   if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER) != 0) {
     std::cerr << SDL_GetError() << '\n';
     return 1;
@@ -256,14 +272,18 @@ int main(int argc, char **argv) {
   }
   SDL_Window *window = SDL_CreateWindow(
       "Growlander | Kebun Pertama - Single-player", SDL_WINDOWPOS_CENTERED,
-      SDL_WINDOWPOS_CENTERED, W, H, SDL_WINDOW_RESIZABLE);
+      SDL_WINDOWPOS_CENTERED, wideTest ? 1560 : W, H, SDL_WINDOW_RESIZABLE
+#ifdef __ANDROID__
+      | SDL_WINDOW_FULLSCREEN_DESKTOP
+#endif
+      );
   if (!window) {
     std::cerr << SDL_GetError() << '\n';
     TTF_Quit();
     SDL_Quit();
     return 1;
   }
-  SDL_SetWindowMinimumSize(window, 960, 600);
+  SDL_SetWindowMinimumSize(window, 640, 360);
   SDL_Renderer *renderer = SDL_CreateRenderer(
       window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
   if (!renderer)
@@ -301,11 +321,57 @@ int main(int argc, char **argv) {
       int selected = 0, mx = 640, my = 400, direction = 1, frame = 0;
       float cameraX = 0, cameraY = 0, cooldown = 0, time = 0;
       bool jump = false;
+      gl::TouchState touches;
+      bool hintMove = false, hintJump = false, hintAction = false;
+      bool targetSet = false;
+      float frozenElapsed = 0;
+      bool panelPauseOK = false, backgroundPauseOK = false;
+      int targetX = 12, targetY = 24;
+      std::string lastMessage;
+      float messageTimer = 0;
+      auto clearInput = [&]() {
+        touches.clear(); keys.fill(false); left = right = jump = false;
+      };
+      auto uiClick = [&](int x, int y) {
+        if (gl::inside(x,y,1184,6,72,48)) {
+          bag = help = paused = false; clearInput(); return true;
+        }
+        if (gl::inside(x,y,872,6,96,48)) {
+          bag = !bag; help = paused = false; clearInput(); return true;
+        }
+        if (gl::inside(x,y,976,6,96,48)) {
+          help = !help; bag = paused = false; clearInput(); return true;
+        }
+        if (gl::inside(x,y,1080,6,96,48)) {
+          paused = !paused; bag = help = false; clearInput(); return true;
+        }
+        if (bag || help || paused) {
+          if (bag && gl::inside(x,y,330,283,620,270))
+            selected = std::clamp((y-283)/45,0,5);
+          if (paused) {
+            if (gl::inside(x,y,330,314,620,48)) { paused=false; clearInput(); }
+            else if (gl::inside(x,y,330,370,620,48)) game.save(savePath);
+            else if (gl::inside(x,y,330,426,620,48)) { if (game.save(savePath)) running=false; }
+            else if (gl::inside(x,y,330,482,620,48)) { game.player={}; game.player.y=20; targetSet=false; paused=false; clearInput(); }
+          }
+          return true;
+        }
+        if (gl::inside(x,y,448,630,384,72)) {
+          selected = std::clamp((x-448)/64,0,5); return true;
+        }
+        return y < 60;
+      };
+      auto pointerDown = [&](std::int64_t id, int x, int y) {
+        if (uiClick(x,y)) return;
+        auto role = gl::touchRole(x,y);
+        touches.down(id,role);
+        if (role == gl::TouchRole::World) {
+          targetX=int(std::floor((x+cameraX)/T));
+          targetY=int(std::floor((y+cameraY)/T)); targetSet=true;
+        }
+      };
       float maxJump = game.player.y;
       Uint64 previous = SDL_GetPerformanceCounter();
-      auto hotbarHit = [&](int x, int y) {
-        return y >= 704 && y <= 774 && x >= 408 && x < 872;
-      };
       auto clickAt = [&](int tx, int ty, Uint8 button) {
         SDL_Event ev{};
         ev.type = SDL_MOUSEBUTTONDOWN;
@@ -332,12 +398,47 @@ int main(int argc, char **argv) {
                                        double(SDL_GetPerformanceFrequency())));
         previous = now;
         time += dt;
+        messageTimer = std::max(0.f, messageTimer-dt);
         cooldown = std::max(0.f, cooldown - dt);
         cameraX = std::clamp(game.player.x * T - W * .40f, 0.f,
                              float(gl::WorldWidth * T - W));
         cameraY = std::clamp(game.player.y * T - H * .53f, 0.f,
                              float(gl::WorldHeight * T - H));
-        if (smoke) {
+        if (touchTest) {
+          auto finger = [&](Uint32 type, SDL_FingerID id, int x, int y) {
+            SDL_Event ev{}; ev.type=type; ev.tfinger.touchId=1; ev.tfinger.fingerId=id;
+            int wx=0,wy=0,ww=0,wh=0;
+            SDL_RenderLogicalToWindow(renderer,float(x),float(y),&wx,&wy);
+            SDL_GetWindowSize(window,&ww,&wh);
+            ev.tfinger.x=float(wx)/ww; ev.tfinger.y=float(wy)/wh; SDL_PushEvent(&ev);
+          };
+          auto tap = [&](int when, SDL_FingerID id, int x, int y) {
+            if(frame==when) finger(SDL_FINGERDOWN,id,x,y);
+            if(frame==when+1) finger(SDL_FINGERUP,id,x,y);
+          };
+          auto target = [&](int when, SDL_FingerID id, int x, int y) {
+            tap(when,id,int(x*T-cameraX+20),int(y*T-cameraY+20));
+          };
+          tap(1,10,790,660); // Benih
+          target(3,11,12,23); tap(5,12,1090,530);
+          target(8,13,13,23); tap(10,14,1090,530);
+          if(frame==13) finger(SDL_FINGERDOWN,1,160,630);
+          tap(14,2,1190,630); // second finger jumps while first keeps walking
+          if(frame==16) finger(SDL_FINGERUP,1,160,630);
+          target(35,15,9,24); tap(37,16,1090,630); tap(41,17,1090,630);
+          tap(44,18,730,660); target(46,19,9,24); tap(48,20,1090,530);
+          tap(52,21,910,30); // Inventaris pauses simulation
+          if(frame==54) frozenElapsed=game.elapsed;
+          if(frame==57) panelPauseOK=bag && game.elapsed==frozenElapsed;
+          tap(58,22,1220,30);
+          if(frame==62) { SDL_Event ev{}; ev.type=SDL_APP_WILLENTERBACKGROUND; SDL_PushEvent(&ev); }
+          if(frame==64) frozenElapsed=game.elapsed;
+          if(frame==67) backgroundPauseOK=paused && game.elapsed==frozenElapsed;
+          tap(68,23,1220,30);
+          target(210,24,12,23); tap(212,25,1090,630);
+          if(frame==220) finger(SDL_FINGERDOWN,26,160,630);
+          if(frame==225) finger(SDL_FINGERUP,26,160,630);
+        } else if (smoke) {
           if (frame == 2) {
             keyEvent(SDL_SCANCODE_6, true);
             clickAt(12, 23, SDL_BUTTON_RIGHT);
@@ -373,10 +474,23 @@ int main(int argc, char **argv) {
         while (SDL_PollEvent(&e)) {
           if (e.type == SDL_QUIT) {
             running = false;
+          } else if (e.type == SDL_APP_WILLENTERBACKGROUND) {
+            clearInput(); paused = true;
+            if (!smoke) game.save(savePath);
+          } else if (e.type == SDL_FINGERDOWN || e.type == SDL_FINGERUP || e.type == SDL_FINGERMOTION) {
+            mobilePreview = true;
+            // SDL_RenderSetLogicalSize already normalizes touch to the logical viewport.
+            // Applying WindowToLogical again would offset taps on letterboxed phones.
+            int x=int(e.tfinger.x*W), y=int(e.tfinger.y*H);
+            if(e.type==SDL_FINGERDOWN) pointerDown(e.tfinger.fingerId,x,y);
+            else if(e.type==SDL_FINGERUP) touches.up(e.tfinger.fingerId);
+            else if(touches.role(e.tfinger.fingerId)==gl::TouchRole::World && !paused && !bag && !help) {
+              targetX=int(std::floor((x+cameraX)/T)); targetY=int(std::floor((y+cameraY)/T)); targetSet=true;
+            }
           } else if (e.type == SDL_WINDOWEVENT &&
                      e.window.event == SDL_WINDOWEVENT_FOCUS_LOST) {
-            keys.fill(false);
-            left = right = false;
+            clearInput();
+            if (!smoke) game.save(savePath);
             if (!smoke)
               paused = true;
           } else if (e.type == SDL_KEYUP) {
@@ -391,7 +505,7 @@ int main(int argc, char **argv) {
             if (sc == SDL_SCANCODE_SPACE || sc == SDL_SCANCODE_W ||
                 sc == SDL_SCANCODE_UP)
               jump = true;
-            if (sc == SDL_SCANCODE_ESCAPE) {
+            if (sc == SDL_SCANCODE_ESCAPE || sc == SDL_SCANCODE_AC_BACK) {
               if (bag || help) {
                 bag = false;
                 help = false;
@@ -424,49 +538,49 @@ int main(int argc, char **argv) {
             }
           } else if (e.type == SDL_MOUSEWHEEL) {
             selected = (selected + (e.wheel.y > 0 ? 5 : 1)) % 6;
-          } else if (e.type == SDL_MOUSEMOTION) {
+          } else if (e.type == SDL_MOUSEMOTION && e.motion.which != SDL_TOUCH_MOUSEID) {
             mx = e.motion.x;
             my = e.motion.y;
-          } else if (e.type == SDL_MOUSEBUTTONDOWN) {
-            mx = e.button.x;
-            my = e.button.y;
-            if (e.button.button == SDL_BUTTON_LEFT && hotbarHit(mx, my))
-              selected = std::clamp((mx - 408) / 78, 0, 5);
-            else if (e.button.button == SDL_BUTTON_LEFT) {
-              left = true;
-              singleLeft = true;
-            } else if (e.button.button == SDL_BUTTON_RIGHT) {
-              right = true;
-              singleRight = true;
+            if (!mobilePreview) targetSet=false;
+          } else if (e.type == SDL_MOUSEBUTTONDOWN && e.button.which != SDL_TOUCH_MOUSEID) {
+            mx=e.button.x; my=e.button.y;
+            if (e.button.button==SDL_BUTTON_LEFT && uiClick(mx,my)) continue;
+            auto role=gl::touchRole(mx,my);
+            if(e.button.button==SDL_BUTTON_LEFT && role!=gl::TouchRole::World) {
+              pointerDown(-900,mx,my); continue;
             }
-            if (bag && e.button.button == SDL_BUTTON_LEFT && mx >= 330 &&
-                mx < 950 && my >= 283 && my < 553)
-              selected = std::clamp((my - 283) / 45, 0, 5);
+            if(mobilePreview && e.button.button==SDL_BUTTON_LEFT) {
+              pointerDown(-900,mx,my); continue;
+            }
+            if(e.button.button==SDL_BUTTON_LEFT) { left=true; singleLeft=true; }
+            else if(e.button.button==SDL_BUTTON_RIGHT) { right=true; singleRight=true; }
           } else if (e.type == SDL_MOUSEBUTTONUP) {
-            if (e.button.button == SDL_BUTTON_LEFT)
-              left = false;
-            if (e.button.button == SDL_BUTTON_RIGHT)
-              right = false;
+            touches.up(-900);
+            if(e.button.button==SDL_BUTTON_LEFT) left=false;
+            if(e.button.button==SDL_BUTTON_RIGHT) right=false;
           }
         }
         bool frozen = paused || bag || help;
         float horizontal =
-            float(keys[SDL_SCANCODE_D] || keys[SDL_SCANCODE_RIGHT]) -
-            float(keys[SDL_SCANCODE_A] || keys[SDL_SCANCODE_LEFT]);
+            std::clamp(float(keys[SDL_SCANCODE_D] || keys[SDL_SCANCODE_RIGHT]) -
+            float(keys[SDL_SCANCODE_A] || keys[SDL_SCANCODE_LEFT]) + touches.horizontal(), -1.f, 1.f);
         if (!frozen) {
-          game.update(dt, horizontal, jump);
+          game.update(dt, horizontal, jump || touches.held(gl::TouchRole::Jump));
+          hintMove = hintMove || horizontal != 0;
+          hintJump = hintJump || jump || touches.held(gl::TouchRole::Jump);
           if (horizontal != 0)
             direction = horizontal > 0 ? 1 : -1;
-          int tx = int(std::floor((mx + cameraX) / T)),
-              ty = int(std::floor((my + cameraY) / T));
-          bool hud = my < 122 || my > 660 || (mx < 255 && my < 350);
+          if(mobilePreview && !targetSet) {
+            targetX=int(game.player.x)+direction*2; targetY=int(game.player.y+1.7f);
+          }
+          int tx = mobilePreview ? targetX : int(std::floor((mx+cameraX)/T));
+          int ty = mobilePreview ? targetY : int(std::floor((my+cameraY)/T));
+          bool hud = !mobilePreview && gl::touchRole(mx,my)!=gl::TouchRole::World;
           if (!hud && cooldown <= 0) {
-            if (left || singleLeft) {
-              game.punch(tx, ty);
-              cooldown = .22f;
-            } else if (right || singleRight) {
-              game.place(tx, ty, static_cast<gl::Item>(selected));
-              cooldown = .22f;
+            if (left || singleLeft || touches.held(gl::TouchRole::Punch)) {
+              game.punch(tx,ty); cooldown=.22f; hintAction=true;
+            } else if (right || singleRight || touches.held(gl::TouchRole::Place)) {
+              game.place(tx,ty,static_cast<gl::Item>(selected)); cooldown=.22f; hintAction=true;
             }
           }
         }
@@ -528,106 +642,59 @@ int main(int argc, char **argv) {
             py = int(game.player.y * T - cameraY) + 9;
         art.avatar(px, py, time, horizontal != 0 && !frozen,
                    game.player.grounded, direction);
-        art.panel(px - 25, py - 28, 81, 23);
-        art.text("Penjelajah", px - 19, py - 26, White, 14);
-        int tx = int(std::floor((mx + cameraX) / T)),
-            ty = int(std::floor((my + cameraY) / T));
-        if (!frozen && my >= 122 && my < 660 && !(mx < 255 && my < 350)) {
-          bool reach = game.inReach(tx, ty);
-          int cx = int(tx * T - cameraX), cy = int(ty * T - cameraY);
-          art.border(cx, cy, T, T, reach ? Gold : Color{235, 122, 110}, 2);
-          const auto &c = game.cell(tx, ty);
-          std::string tip =
-              !reach ? "Di luar jangkauan"
-              : c.growth >= 0
-                  ? (c.growth >= gl::Game::GrowSeconds
-                         ? "Siap dipanen - klik kiri"
-                         : "Tumbuh: " +
-                               std::to_string(std::max(
-                                   0, int(std::ceil(gl::Game::GrowSeconds -
-                                                    c.growth)))) +
-                               " dtk")
-                  : (selected == 5 ? "Klik kanan: tanam"
-                                   : "Kiri: pukul | Kanan: bangun");
-          art.panel(std::clamp(cx - 60, 270, W - 320),
-                    std::clamp(cy - 37, 126, 620), 310, 28);
-          art.text(tip, std::clamp(cx - 53, 277, W - 313),
-                   std::clamp(cy - 33, 130, 624), White, 14);
+        int tx = mobilePreview ? targetX : int(std::floor((mx+cameraX)/T));
+        int ty = mobilePreview ? targetY : int(std::floor((my+cameraY)/T));
+        if (!frozen && (mobilePreview || gl::touchRole(mx,my)==gl::TouchRole::World)) {
+          bool reach=game.inReach(tx,ty);
+          art.border(int(tx*T-cameraX),int(ty*T-cameraY),T,T,reach?Gold:Color{235,122,110},2);
         }
-        // HUD: offline status, identity, world details, goals, selected item,
-        // and controls.
-        art.rect(0, 0, W, 31, {16, 31, 44});
-        art.text("GROWLANDER", 24, 5, Gold, 17);
-        art.text("PROTOTIPE 01   /   DUNIA PRIBADI", 205, 8, Muted, 14);
-        art.text("SINGLE-PLAYER  |  LOKAL", 1030, 8, Mint, 14);
-        art.panel(20, 45, 310, 68);
-        art.avatar(35, 50, 0, false, true, 1, 1);
-        art.text("Penjelajah", 81, 52, White, 17);
-        art.text("Permata  " + std::to_string(game.gems), 81, 80, Gold, 14);
-        art.panel(344, 45, 580, 68);
-        art.text("KEBUN PERTAMA", 362, 52, White, 26);
-        art.text("Dunia 100 x 60  /  Bangun sesukamu. Tumbuhkan idemu.", 363,
-                 86, Muted, 14);
-        art.panel(938, 45, 322, 68);
-        art.text("I  Inventaris     H  Bantuan", 956, 55, White, 17);
-        art.text("F5 Simpan   F9 Muat   Esc Menu", 956, 85, Muted, 14);
-        art.panel(20, 139, 228, 198);
-        art.text("LANGKAH PERTAMA", 36, 154, Gold, 14);
-        struct Goal {
-          const char *label;
-          int count;
-          int target;
+        // Compact HUD: one thin header, six slots, and reachable thumb controls.
+        art.rect(0,0,W,60,{16,31,44,220});
+        art.text("GROWLANDER",24,10,Gold,17);
+        art.text("PEMAIN TUNGGAL",24,33,Mint,14);
+        art.text("Permata " + std::to_string(game.gems),220,21,Gold,17);
+        auto button = [&](int x,int y,int w,int h,const std::string &label,bool active=false) {
+          art.rect(x,y,w,h,active?Color{63,104,103,240}:Color{20,39,51,200});
+          art.border(x,y,w,h,active?Gold:Color{98,139,147},active?2:1);
+          art.text(label,x+10,y+h/2-10,White,17);
         };
-        Goal goals[] = {{"Pecahkan blok", game.progress.broken, 3},
-                        {"Tempatkan blok", game.progress.placed, 3},
-                        {"Tanam benih", game.progress.planted, 2},
-                        {"Panen pohon", game.progress.harvested, 1}};
-        for (int i = 0; i < 4; i++) {
-          bool done = goals[i].count >= goals[i].target;
-          art.rect(37, 188 + i * 32, 13, 13, done ? Mint : Color{55, 79, 89});
-          art.text(goals[i].label, 59, 184 + i * 32, done ? Mint : White, 14);
-          art.text(std::to_string(std::min(goals[i].count, goals[i].target)) +
-                       "/" + std::to_string(goals[i].target),
-                   199, 184 + i * 32, Muted, 14);
+        button(872,6,96,48,"Tas",bag);
+        button(976,6,96,48,"Bantu",help);
+        button(1080,6,96,48,"Menu",paused);
+        if(frozen) button(1184,6,72,48,"Tutup");
+        for(int i=0;i<6;i++) {
+          int x=448+i*64;
+          art.rect(x,630,60,72,i==selected?Color{64,87,89,240}:Color{20,39,51,210});
+          art.border(x,630,60,72,i==selected?Gold:Color{64,86,97},i==selected?3:1);
+          art.icon(static_cast<gl::Item>(i),x+15,638,30);
+          art.text(i==0?"ALAT":std::to_string(game.inventory[i]),x+10,677,White,14);
         }
-        art.rect(0, 663, W, 137, {16, 32, 44, 245});
-        art.line(0, 663, W, 663, {64, 92, 102});
-        std::string msg =
-            game.message.empty()
-                ? "Mulai: pilih Benih [6], klik kanan di atas tanah. Panen "
-                  "dengan klik kiri setelah 18 detik."
-                : game.message;
-        if (msg.size() > 130)
-          msg = msg.substr(0, 127) + "...";
-        art.text(msg, 24, 675, Mint, 14);
-        art.text("ITEM TERPILIH", 24, 714, Muted, 14);
-        art.text(gl::Game::itemName(static_cast<gl::Item>(selected)), 24, 737,
-                 White, 26);
-        for (int i = 0; i < 6; i++) {
-          int x = 408 + i * 78;
-          art.rect(x, 704, 72, 70,
-                   i == selected ? Color{64, 87, 89} : Color{31, 51, 64});
-          art.border(x, 704, 72, 70, i == selected ? Gold : Color{64, 86, 97},
-                     i == selected ? 2 : 1);
-          art.text(std::to_string(i + 1), x + 5, 707,
-                   i == selected ? Gold : Muted, 14);
-          art.icon(static_cast<gl::Item>(i), x + 23, 715, 30);
-          art.text(i == 0 ? "ALAT" : std::to_string(game.inventory[i]), x + 9,
-                   752, White, 14);
+        art.panel(448,600,384,26);
+        art.text(gl::Game::itemName(static_cast<gl::Item>(selected)),460,603,Gold,14);
+        button(24,590,88,88,"<",touches.held(gl::TouchRole::Left));
+        button(128,590,88,88,">",touches.held(gl::TouchRole::Right));
+        button(1152,590,88,88,"Lompat",touches.held(gl::TouchRole::Jump));
+        button(1048,590,88,88,"Pukul",touches.held(gl::TouchRole::Punch));
+        button(1048,486,88,88,selected==5?"Tanam":"Pasang",touches.held(gl::TouchRole::Place));
+        if (!(hintMove && hintJump && hintAction) && !frozen) {
+          art.panel(286,76,708,30);
+          art.text(mobilePreview?"Gerak kiri/kanan, lompat, sentuh target lalu Pukul atau Pasang.":
+            "A/D gerak, Spasi lompat, kiri pukul, kanan pasang; 1-6 pilih item.",300,82,White,14);
         }
-        art.text("A/D   Gerak    Spasi   Lompat", 912, 709, White, 14);
-        art.text("Kiri   Pukul / panen", 912, 733, White, 14);
-        art.text("Kanan   Bangun / tanam", 912, 757, White, 14);
-        art.text("1-6 / roda mouse: pilih item     |     Simpan otomatis saat "
-                 "keluar",
-                 408, 781, Muted, 14);
+        if (game.message != lastMessage) {
+          lastMessage=game.message; messageTimer=3.f;
+        }
+        if(messageTimer>0 && !game.message.empty() && !frozen) {
+          std::string msg=game.message;
+          if(msg.size()>88) msg=msg.substr(0,85)+"...";
+          art.panel(286,116,708,30); art.text(msg,300,122,Mint,14);
+        }
         if (frozen) {
-          art.rect(0, 31, W, H - 31, {8, 20, 31, 170});
+          art.rect(0, 60, W, H - 60, {8, 20, 31, 170});
           art.panel(300, 180, 680, 430);
           if (bag) {
             art.text("Inventaris", 330, 203, Gold, 26);
-            art.text("Klik slot atau tekan 1-6 untuk memilih. I / Esc untuk "
-                     "kembali.",
+            art.text("Sentuh item untuk memilih. Tutup untuk kembali.",
                      330, 246, Muted, 14);
             for (int i = 0; i < 6; i++) {
               int y = 283 + i * 45;
@@ -642,37 +709,40 @@ int main(int argc, char **argv) {
           } else if (help) {
             art.text("Kebun kecil, ide besar.", 330, 203, Gold, 26);
             std::vector<std::string> lines = {
-                "A / D atau panah: berjalan. Spasi / W / atas: melompat.",
-                "Klik kiri / tahan: pukul blok atau panen tanaman matang.",
-                "1-6 / roda mouse / klik hotbar: pilih alat atau item.",
-                "Klik kanan: bangun blok; Benih [6]: tanam di atas blok.",
-                "Benih tumbuh 18 detik saat bermain. Pukul untuk panen.",
-                "Panen memberi kayu, benih, dan permata ke inventaris.",
-                "Jangkauan 4 tile. Tidak bisa membangun di dalam avatar.",
-                "F5 simpan, F9 muat, R kembali ke rumah. Esc: menu.",
-                "I / H / menu menjeda permainan. H atau Esc: kembali."};
+                "Sentuh dunia untuk memilih target. Tahan Pukul untuk memecah.",
+                "Pilih item di hotbar, lalu Pasang; pilih Benih untuk Tanam.",
+                "Benih tumbuh 18 detik bermain aktif. Pukul pohon untuk panen.",
+                "Jangkauan 4 tile. Blok tak bisa dipasang di dalam avatar.",
+                "Dua jempol: gerak di kiri, lompat dan aksi di kanan.",
+                "Desktop: A/D, Spasi, klik kiri/kanan, 1-6 atau roda mouse.",
+                "I inventaris, H bantuan, Esc menu; F5 simpan, F9 muat.",
+                "Dunia dijeda saat panel dibuka. Simpan lokal otomatis."};
             for (size_t i = 0; i < lines.size(); i++)
               art.text(lines[i], 330, 258 + int(i) * 34, White, 14);
           } else {
             art.text("Istirahat sebentar?", 330, 212, Gold, 26);
             art.text("Dunia dan tanaman sedang dijeda.", 330, 267, Muted, 17);
-            art.text("Esc   Lanjut bermain", 330, 334, White, 17);
-            art.text("F5    Simpan dunia", 330, 381, White, 17);
-            art.text("Enter   Simpan & keluar", 330, 428, Gold, 17);
-            art.text("Tutup jendela juga menyimpan otomatis.", 330, 532, Muted,
+            art.text("Lanjut bermain", 330, 334, White, 17);
+            art.text("Simpan dunia", 330, 381, White, 17);
+            art.text("Simpan & keluar", 330, 428, Gold, 17);
+            art.text("Kembali ke rumah", 330, 496, White, 17);
+            art.text("Disimpan lokal saat aplikasi masuk latar belakang.", 330, 556, Muted,
                      14);
           }
         }
         bool lastSmoke = smoke && frame >= 239;
         if (lastSmoke) {
-          bool ok = game.progress.planted >= 2 &&
-                    game.progress.harvested >= 1 && game.progress.broken >= 1 &&
-                    game.progress.placed >= 1 && maxJump < 21.f &&
-                    game.player.x > 10.5f;
-          std::cout << "SDL smoke: planted=" << game.progress.planted
+          bool gameplayOK=game.progress.planted>=2 && game.progress.harvested>=1 &&
+                    game.progress.broken>=1 && game.progress.placed>=1 && maxJump<21.f && game.player.x>10.5f;
+          bool ok = gameplayOK && (!touchTest || (hintMove && hintJump && hintAction && selected==4 &&
+                    panelPauseOK && backgroundPauseOK && !paused && !bag && !help &&
+                    touches.horizontal()==0 && !touches.held(gl::TouchRole::Punch)));
+
+          std::cout << (touchTest?"SDL multitouch: ":"SDL smoke: ") << "planted=" << game.progress.planted
                     << " harvested=" << game.progress.harvested
                     << " broken=" << game.progress.broken
                     << " placed=" << game.progress.placed
+                    << " panel_pause=" << panelPauseOK << " background_pause=" << backgroundPauseOK
                     << " jump_min_y=" << maxJump
                     << " player_x=" << game.player.x << " => "
                     << (ok ? "PASS" : "FAIL") << '\n';

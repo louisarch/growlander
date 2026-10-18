@@ -1,0 +1,16 @@
+-- Configuring done (0.0s)
+-- Generating done (0.0s)
+-- Build files have been written to: /workspace/growlander/build-mobile-verify
+[ 12%] Building CXX object CMakeFiles/growlander_core.dir/src/game.cpp.o
+[ 25%] Linking CXX static library libgrowlander_core.a
+[ 25%] Built target growlander_core
+[ 50%] Building CXX object CMakeFiles/growlander_tests.dir/tests/core_tests.cpp.o
+[ 50%] Building CXX object CMakeFiles/game.dir/src/main.cpp.o
+[ 62%] Linking CXX executable growlander_tests
+[ 62%] Built target growlander_tests
+[ 75%] Building CXX object CMakeFiles/growlander_touch_tests.dir/tests/touch_tests.cpp.o
+[ 87%] Linking CXX executable growlander_touch_tests
+[ 87%] Built target growlander_touch_tests
+[100%] Linking CXX executable growlander
+Copying game assets beside the executable
+[100%] Built target game
