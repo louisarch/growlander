@@ -363,6 +363,9 @@ int main(int argc, char **argv) {
       bool targetSet = false;
       float frozenElapsed = 0;
       bool panelPauseOK = false, backgroundPauseOK = false;
+      bool inventorySelectOK = false, directPlantOK = false;
+      bool autoPlantOK = false;
+      bool heldPunchOK = false, cameraFollowOK = false;
       int targetX = 12, targetY = 24;
       std::string lastMessage;
       float messageTimer = 0;
@@ -385,6 +388,9 @@ int main(int argc, char **argv) {
         if (bag || help || paused) {
           if (bag && gl::inside(x,y,330,283,620,270))
             selected = std::clamp((y-283)/45,0,5);
+          if (bag && !gl::inside(x,y,300,180,680,430)) {
+            bag = false; clearInput(); // Consume dismissal; never act through it.
+          }
           if (paused) {
             if (gl::inside(x,y,330,314,620,48)) { paused=false; clearInput(); }
             else if (gl::inside(x,y,330,370,620,48)) saveGame();
@@ -405,6 +411,12 @@ int main(int argc, char **argv) {
         if (role == gl::TouchRole::World) {
           targetX=int(std::floor((x+cameraX)/T));
           targetY=int(std::floor((y+cameraY)/T)); targetSet=true;
+          // Mobile seed placement is one world tap per seed, not a second
+          // trip to the action button. Pukul remains a separate held action.
+          if (selected == static_cast<int>(gl::Item::Seed)) {
+            game.place(targetX,targetY,gl::Item::Seed);
+            hintAction = true;
+          }
         }
       };
       float maxJump = game.player.y;
@@ -456,13 +468,26 @@ int main(int argc, char **argv) {
           auto target = [&](int when, SDL_FingerID id, int x, int y) {
             tap(when,id,int(x*T-cameraX+20),int(y*T-cameraY+20));
           };
-          tap(1,10,790,660); // Benih
-          target(3,11,12,23); tap(5,12,1090,530);
+          tap(0,30,910,30); // Select Benih from the inventory, not the hotbar.
+          tap(1,10,500,530);
+          tap(2,31,260,400); // Outside closes inventory without world action.
+          tap(3,12,1090,530); // Auto-target plants above the ground, not inside it.
+          if(frame==4) {
+            inventorySelectOK = !bag && selected==5;
+            autoPlantOK = game.progress.planted==1 && game.inventory[5]==7;
+          }
           target(8,13,13,23); tap(10,14,1090,530);
+          if(frame==9) directPlantOK = game.progress.planted==2 && game.inventory[5]==6;
           if(frame==13) finger(SDL_FINGERDOWN,1,160,630);
           tap(14,2,1190,630); // second finger jumps while first keeps walking
           if(frame==16) finger(SDL_FINGERUP,1,160,630);
-          target(35,15,9,24); tap(37,16,1090,630); tap(41,17,1090,630);
+          target(35,15,9,24);
+          if(frame==37) finger(SDL_FINGERDOWN,16,1090,630);
+          if(frame==38) heldPunchOK = game.cell(9,24).hits==1;
+          if(frame==42) {
+            finger(SDL_FINGERUP,16,1090,630);
+            heldPunchOK = heldPunchOK && game.cell(9,24).tile==gl::Tile::Air && game.inventory[1]==41;
+          }
           tap(44,18,730,660); target(46,19,9,24); tap(48,20,1090,530);
           tap(52,21,910,30); // Inventaris pauses simulation
           if(frame==54) frozenElapsed=game.elapsed;
@@ -475,6 +500,7 @@ int main(int argc, char **argv) {
           target(210,24,12,23); tap(212,25,1090,630);
           if(frame==220) finger(SDL_FINGERDOWN,26,160,630);
           if(frame==225) finger(SDL_FINGERUP,26,160,630);
+          if(frame==226) cameraFollowOK = cameraX>0 && std::abs(game.player.x*T-cameraX-W*.40f)<1.f;
         } else if (smoke) {
           if (frame == 2) {
             keyEvent(SDL_SCANCODE_6, true);
@@ -608,14 +634,16 @@ int main(int argc, char **argv) {
           if (horizontal != 0)
             direction = horizontal > 0 ? 1 : -1;
           if(mobilePreview && !targetSet) {
-            targetX=int(game.player.x)+direction*2; targetY=int(game.player.y+1.7f);
+            targetX=int(game.player.x)+direction*2;
+            targetY=int(game.player.y+1.7f)-(selected==0 ? 0 : 1);
           }
           int tx = mobilePreview ? targetX : int(std::floor((mx+cameraX)/T));
           int ty = mobilePreview ? targetY : int(std::floor((my+cameraY)/T));
           bool hud = !mobilePreview && gl::touchRole(mx,my)!=gl::TouchRole::World;
           if (!hud && cooldown <= 0) {
             if (left || singleLeft || touches.held(gl::TouchRole::Punch)) {
-              game.punch(tx,ty); cooldown=.22f; hintAction=true;
+              const int punchY = mobilePreview && !targetSet ? int(game.player.y+1.7f) : ty;
+              game.punch(tx,punchY); cooldown=.22f; hintAction=true;
             } else if (right || singleRight || touches.held(gl::TouchRole::Place)) {
               game.place(tx,ty,static_cast<gl::Item>(selected)); cooldown=.22f; hintAction=true;
             }
@@ -731,7 +759,7 @@ int main(int argc, char **argv) {
           art.panel(300, 180, 680, 430);
           if (bag) {
             art.text("Inventaris", 330, 203, Gold, 26);
-            art.text("Sentuh item untuk memilih. Tutup untuk kembali.",
+            art.text("Pilih item, lalu sentuh luar panel untuk kembali.",
                      330, 246, Muted, 14);
             for (int i = 0; i < 6; i++) {
               int y = 283 + i * 45;
@@ -773,6 +801,7 @@ int main(int argc, char **argv) {
                     game.progress.broken>=1 && game.progress.placed>=1 && maxJump<21.f && game.player.x>10.5f;
           bool ok = art.textFilteringOK && !art.cache.empty() && gameplayOK && (!touchTest || (hintMove && hintJump && hintAction && selected==4 &&
                     panelPauseOK && backgroundPauseOK && !paused && !bag && !help &&
+                    inventorySelectOK && autoPlantOK && directPlantOK && heldPunchOK && cameraFollowOK &&
                     touches.horizontal()==0 && !touches.held(gl::TouchRole::Punch)));
 
           std::cout << (touchTest?"SDL multitouch: ":"SDL smoke: ") << "planted=" << game.progress.planted
@@ -781,6 +810,9 @@ int main(int argc, char **argv) {
                     << " placed=" << game.progress.placed
                     << " panel_pause=" << panelPauseOK << " background_pause=" << backgroundPauseOK
                     << " text_filter=" << art.textFilteringOK
+                    << " inventory_select=" << inventorySelectOK << " direct_plant=" << directPlantOK
+                    << " auto_plant=" << autoPlantOK
+                    << " held_punch=" << heldPunchOK << " camera_follow=" << cameraFollowOK
                     << " jump_min_y=" << maxJump
                     << " player_x=" << game.player.x << " => "
                     << (ok ? "PASS" : "FAIL") << '\n';

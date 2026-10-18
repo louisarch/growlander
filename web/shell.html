@@ -92,6 +92,10 @@
     var Module = {
       canvas: document.getElementById('canvas'),
       arguments: gameArguments,
+      locateFile: (path, prefix) => {
+        const version = document.documentElement.dataset.runtimeVersion;
+        return prefix + path + (version ? '?v=' + version : '');
+      },
       print: (...args) => {
         console.log(...args);
         if (String(args[0]).startsWith('SDL ')) {

@@ -1,0 +1,10 @@
+# Version URLs, not filenames: Pages must still publish exactly five files.
+foreach(asset index.js index.wasm index.data)
+    file(SHA256 "${WEB_BUILD_DIR}/${asset}" digest)
+    string(APPEND runtime_digests "${digest}")
+endforeach()
+string(SHA256 runtime_version "${runtime_digests}")
+file(READ "${WEB_BUILD_DIR}/index.html" html)
+string(REPLACE "<html lang=\"id\">" "<html lang=\"id\" data-runtime-version=\"${runtime_version}\">" html "${html}")
+string(REPLACE "src=\"index.js\"" "src=\"index.js?v=${runtime_version}\"" html "${html}")
+file(WRITE "${WEB_BUILD_DIR}/index.html" "${html}")

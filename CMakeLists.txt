@@ -62,6 +62,13 @@ if(EMSCRIPTEN)
         RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}"
     )
     set_property(TARGET game APPEND PROPERTY LINK_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/web/shell.html")
+    set_property(TARGET game APPEND PROPERTY LINK_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/web/version-assets.cmake")
+    add_custom_command(TARGET game POST_BUILD
+        COMMAND "${CMAKE_COMMAND}" "-DWEB_BUILD_DIR=$<TARGET_FILE_DIR:game>"
+                -P "${CMAKE_CURRENT_SOURCE_DIR}/web/version-assets.cmake"
+        COMMENT "Versioning web runtime URLs to avoid stale Pages assets"
+        VERBATIM
+    )
 else()
     # SDL2main (where provided) must precede the SDL2 target in link order.
     if(TARGET SDL2::SDL2main)
