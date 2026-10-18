@@ -1,0 +1,15 @@
+# CMake build output
+/build/
+/build-*/
+/cmake-build-*/
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+CTestTestfile.cmake
+Makefile
+
+# Local game data and generated screenshots
+*.glw
+/smoke.bmp
+*.tmp
+/screenshots/*.bmp

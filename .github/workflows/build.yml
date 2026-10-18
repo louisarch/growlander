@@ -1,0 +1,47 @@
+name: Build and test
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  linux:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake pkg-config libsdl2-dev libsdl2-ttf-dev xvfb xauth xdotool python3
+
+      - name: Configure Debug build
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug
+
+      - name: Build
+        run: cmake --build build --config Debug -j 2
+
+      - name: Run core tests
+        run: ctest --test-dir build --output-on-failure
+
+      - name: Run headless smoke test
+        run: xvfb-run -a ./build/growlander --smoke-test --screenshot smoke.bmp
+        env:
+          SDL_RENDER_DRIVER: software
+
+      - name: Native keyboard and mouse integration
+        run: xvfb-run -a python3 tests/native_ui_test.py build/growlander
+        env:
+          SDL_RENDER_DRIVER: software
+
+      - name: Upload smoke-test artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: growlander-linux-debug
+          path: |
+            smoke.bmp
+            build/growlander
+          if-no-files-found: warn

@@ -1,0 +1,23 @@
+-- Configuring done (0.0s)
+-- Generating done (0.0s)
+-- Build files have been written to: /workspace/growlander/build-release
+[ 16%] Building CXX object CMakeFiles/growlander_core.dir/src/game.cpp.o
+[ 33%] Linking CXX static library libgrowlander_core.a
+[ 33%] Built target growlander_core
+[ 50%] Building CXX object CMakeFiles/growlander_tests.dir/tests/core_tests.cpp.o
+[ 66%] Building CXX object CMakeFiles/game.dir/src/main.cpp.o
+[ 83%] Linking CXX executable growlander_tests
+[ 83%] Built target growlander_tests
+[100%] Linking CXX executable growlander
+Copying game assets beside the executable
+[100%] Built target game
+Internal ctest changing into directory: /workspace/growlander/build-release
+Test project /workspace/growlander/build-release
+    Start 1: growlander_core_tests
+1/1 Test #1: growlander_core_tests ............   Passed    0.01 sec
+
+100% tests passed, 0 tests failed out of 1
+
+Total Test time (real) =   0.02 sec
+69 checks, 0 failures
+SDL smoke: planted=2 harvested=1 broken=1 placed=1 jump_min_y=19.9917 player_x=16 => PASS
