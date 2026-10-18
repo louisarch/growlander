@@ -123,6 +123,7 @@ with sync_playwright() as pw:
     page.wait_for_function("document.title.includes('Kebun Pertama')", timeout=60000)
     page.wait_for_timeout(500)
     canvas = page.locator('#canvas')
+    canvas.scroll_into_view_if_needed()
     cdp = context.new_cdp_session(page)
     def points(coords):
         box=canvas.bounding_box()
@@ -169,6 +170,7 @@ with sync_playwright() as pw:
     check(sky[2]>190 and sky[2]-sky[0]>65, 'palet langit jenuh terbaca pada mobile landscape')
     # Wider landscape still has correct logical touch coordinates and safe letterboxing.
     page.set_viewport_size({'width': 960,'height': 432})
+    canvas.scroll_into_view_if_needed()
     tap(910,30); tap(840,455)
     page.screenshot(path=str(out/'mobile-wide.png'))
     check(canvas.bounding_box()['width']<=960, 'kanvas landscape lebar tidak keluar viewport')

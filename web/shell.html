@@ -2,86 +2,117 @@
 <html lang="id">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-  <meta name="theme-color" content="#16355e">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#f6f7f2">
+  <meta name="description" content="Growlander, game sandbox single-player di browser. Jelajahi, tanam, dan bangun duniamu sendiri.">
   <title>Growlander</title>
   <style>
-    :root { color-scheme: dark; background: #10223f; }
+    :root { color-scheme: light; --ink: #24382f; --muted: #5d7065; --line: #dce3d9; --green: #285a3d; background: #f6f7f2; }
     * { box-sizing: border-box; }
-    html, body {
-      width: 100%;
-      height: 100%;
-      margin: 0;
-      overflow: hidden;
-      background: #10223f;
-      touch-action: none;
+    html { scroll-padding-top: 20px; }
+    body { margin: 0; color: var(--ink); font: 15px/1.6 system-ui, sans-serif; }
+    a { color: inherit; text-underline-offset: 4px; }
+    button { font: inherit; cursor: pointer; touch-action: manipulation; }
+    a:focus-visible, button:focus-visible, summary:focus-visible { outline: 3px solid #af7224; outline-offset: 4px; }
+    .wrap { width: min(1120px, calc(100% - 64px)); margin-inline: auto; }
+    .site-header { border-bottom: 1px solid var(--line); background: #fcfcf8; }
+    .header-inner { min-height: 78px; display: flex; align-items: center; justify-content: space-between; gap: 24px; }
+    .brand { display: inline-flex; align-items: center; gap: 12px; font-size: 21px; font-weight: 800; letter-spacing: -.7px; text-decoration: none; }
+    .brand-mark { width: 28px; height: 28px; background: #589148; border-top: 8px solid #80b358; border-bottom: 8px solid #a77549; box-shadow: inset 0 -4px #8d603f; }
+    nav { display: flex; align-items: center; gap: 28px; font-size: 13px; font-weight: 650; }
+    nav a { text-decoration: none; }
+    nav a:hover { color: #46734a; text-decoration: underline; }
+    .intro { padding: 36px 0 25px; display: flex; justify-content: space-between; align-items: end; gap: 24px; }
+    .eyebrow { margin: 0 0 5px; color: var(--green); font-size: 11px; letter-spacing: 1.8px; text-transform: uppercase; font-weight: 800; }
+    h1 { margin: 0 0 5px; font-size: clamp(26px, 3.5vw, 38px); line-height: 1.2; letter-spacing: -1.2px; }
+    .intro p:last-child { margin: 0; color: var(--muted); }
+    .tag { flex-shrink: 0; padding: 5px 12px; border: 1px solid #cdddc8; border-radius: 100px; color: var(--green); background: #edf3e7; font-size: 12px; font-weight: 650; }
+    .player { border: 1px solid #cbd5c8; border-radius: 12px; overflow: hidden; background: #fff; box-shadow: 0 8px 28px #263d2810; }
+    #game-frame { width: 100%; aspect-ratio: 16 / 9; position: relative; background: #10223f; }
+    #canvas { display: block; width: 100%; height: 100%; border: 0; outline: none; background: #10223f; touch-action: none; -webkit-user-select: none; user-select: none; }
+    #canvas:focus-visible { outline: 3px solid #e6bf62; outline-offset: -3px; }
+    #game-frame:fullscreen { width: 100vw; height: 100vh; aspect-ratio: auto; display: grid; place-items: center; }
+    #game-frame:fullscreen #canvas { width: min(100vw, 177.7778vh); height: auto; aspect-ratio: 16 / 9; }
+    #exit-fullscreen { display: none; }
+    #game-frame:fullscreen #exit-fullscreen { display: block; position: absolute; top: max(8px, env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); padding: 6px 12px; border: 1px solid #c8d6bf; border-radius: 6px; background: #fcfcf8; color: var(--ink); font-size: 12px; }
+    #toolbar { min-height: 62px; padding: 10px 18px; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+    .player-meta { display: flex; align-items: center; flex-wrap: wrap; column-gap: 14px; font-size: 12px; color: var(--muted); }
+    .player-meta strong { color: var(--ink); font-size: 13px; }
+    #status { font-size: 11px; color: var(--muted); overflow-wrap: anywhere; }
+    #status:empty { display: none; }
+    #fullscreen { flex-shrink: 0; padding: 8px 13px; background: #f4f6ef; color: var(--green); border: 1px solid #d5dfd0; border-radius: 6px; font-size: 12px; font-weight: 700; }
+    #fullscreen:hover { background: #e8efdf; }
+    .play-note { margin: 12px 0 28px; text-align: center; color: var(--muted); font-size: 12px; }
+    .info-grid { display: grid; grid-template-columns: 1.3fr 1fr; gap: 40px; padding: 27px 0 36px; border-top: 1px solid var(--line); }
+    h2 { margin: 0 0 10px; font-size: 19px; letter-spacing: -.4px; }
+    .about p { margin: 0; color: var(--muted); max-width: 53ch; font-size: 14px; }
+    details { border-bottom: 1px solid var(--line); padding: 0 0 12px; margin-bottom: 12px; font-size: 13px; }
+    summary { cursor: pointer; font-weight: 700; }
+    .controls { display: grid; grid-template-columns: auto 1fr; gap: 7px 18px; margin: 14px 0 0; color: var(--muted); }
+    .controls dt { color: var(--ink); font-weight: 600; }
+    .controls dd { margin: 0; }
+    details p { margin: 10px 0 0; color: var(--muted); }
+    kbd { font: 11px/1.5 system-ui, sans-serif; border: 1px solid #d3dcce; border-bottom-width: 2px; border-radius: 4px; padding: 1px 5px; background: #fff; white-space: nowrap; }
+    footer { border-top: 1px solid var(--line); padding: 18px 0 25px; color: var(--muted); font-size: 12px; }
+    footer .wrap { display: flex; justify-content: space-between; gap: 20px; }
+    @media (max-width: 600px) {
+      .wrap { width: calc(100% - 28px); }
+      .header-inner { min-height: 66px; gap: 12px; }
+      .brand { font-size: 18px; gap: 9px; }
+      .brand-mark { width: 23px; height: 25px; }
+      nav { gap: 16px; font-size: 12px; }
+      .intro { padding: 27px 0 20px; align-items: start; flex-direction: column; gap: 12px; }
+      .intro p:last-child { font-size: 13px; }
+      .tag { font-size: 11px; padding: 3px 10px; }
+      .player { border-radius: 8px; }
+      #toolbar { padding: 10px; gap: 8px; }
+      .player-meta { gap: 0 8px; }
+      .player-meta strong { font-size: 12px; }
+      #fullscreen { padding: 8px 10px; }
+      .play-note { margin: 10px 8px 24px; font-size: 11px; }
+      .info-grid { grid-template-columns: 1fr; gap: 25px; padding-top: 23px; }
+      footer .wrap { flex-direction: column; gap: 4px; }
     }
-    body {
-      display: grid;
-      place-items: center;
-      min-height: 100vh;
-      min-height: 100svh;
-      font: 14px/1.4 system-ui, sans-serif;
-      color: #eee;
-      -webkit-user-select: none;
-      user-select: none;
+    @media (orientation: landscape) and (max-height: 600px) and (max-width: 960px) {
+      #game-frame { aspect-ratio: auto; }
+      #canvas { width: min(100%, calc((100svh - 80px) * 16 / 9)); height: auto; aspect-ratio: 16 / 9; margin-inline: auto; }
     }
-    #game-frame {
-      width: min(calc(100vw - env(safe-area-inset-left) - env(safe-area-inset-right)), 177.7778svh);
-      aspect-ratio: 16 / 9;
-      max-height: 100vh;
-      max-height: 100svh;
-      background: #10223f;
-      position: relative;
-    }
-    #canvas {
-      display: block;
-      width: 100%;
-      height: 100%;
-      border: 0;
-      outline: none;
-      background: #10223f;
-      touch-action: none;
-    }
-    #toolbar {
-      position: fixed;
-      z-index: 2;
-      inset: auto 0 max(8px, env(safe-area-inset-bottom)) 0;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      gap: 12px;
-      pointer-events: none;
-      text-shadow: 0 1px 3px #000;
-    }
-    #status { min-height: 1.4em; }
-    #fullscreen {
-      position: fixed;
-      top: max(4px, env(safe-area-inset-top));
-      left: max(8px, env(safe-area-inset-left));
-      top: auto;
-      bottom: max(6px, env(safe-area-inset-bottom));
-      pointer-events: auto;
-      color: #fff;
-      background: #222d;
-      border: 1px solid #888;
-      border-radius: 4px;
-      padding: 3px 8px;
-      font: 12px/1.4 system-ui, sans-serif;
-      cursor: pointer;
-      touch-action: manipulation;
-    }
-    #fullscreen:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+    @media (prefers-reduced-motion: no-preference) { a, button { transition: background-color .15s, color .15s; } }
   </style>
 </head>
 <body>
-  <main id="game-frame" aria-label="Growlander game">
-    <canvas id="canvas" width="1280" height="720" tabindex="0" oncontextmenu="event.preventDefault()"></canvas>
+  <header class="site-header">
+    <div class="wrap header-inner">
+      <a class="brand" href="#" aria-label="Growlander beranda"><span class="brand-mark" aria-hidden="true"></span>Growlander</a>
+      <nav aria-label="Navigasi utama"><a href="#main-game">Main</a><a href="#cara-main">Cara main</a></nav>
+    </div>
+  </header>
+  <main class="wrap">
+    <section class="intro" aria-labelledby="page-title">
+      <div><p class="eyebrow">Sandbox · Eksplorasi · Berkebun</p><h1 id="page-title">Duniamu, tumbuh sesukamu.</h1><p>Jelajahi, tanam, dan bangun. Satu blok kecil, banyak kemungkinan.</p></div>
+      <span class="tag">Single-player</span>
+    </section>
+    <section class="player" id="main-game" aria-label="Main Growlander">
+      <div id="game-frame" aria-label="Area permainan Growlander">
+        <canvas id="canvas" width="1280" height="720" tabindex="0" aria-label="Game Growlander. Klik atau sentuh untuk bermain; lihat panduan kontrol di bawah." oncontextmenu="event.preventDefault()">Browser ini perlu mendukung canvas dan WebAssembly untuk menjalankan Growlander.</canvas>
+        <button id="exit-fullscreen" type="button">Keluar layar penuh</button>
+      </div>
+      <div id="toolbar">
+        <div class="player-meta"><strong>Kebun Pertama</strong><span>Petualangan single-player</span><span id="status" role="status" aria-live="polite">Memuat game…</span></div>
+        <button id="fullscreen" type="button" aria-label="Buka layar penuh">Layar penuh ↗</button>
+      </div>
+    </section>
+    <p class="play-note">Klik atau sentuh area game untuk bermain. Di ponsel, putar ke lanskap atau pilih layar penuh agar kontrol lebih leluasa.</p>
+    <section class="info-grid" id="cara-main" aria-label="Tentang game dan panduan">
+      <div class="about"><p class="eyebrow">Tentang Growlander</p><h2>Mulai kecil. Bangun sesuatu milikmu.</h2><p>Kumpulkan bahan, tanam benih, lalu panen untuk mengembangkan duniamu. Main sendiri dengan ritmemu sendiri, langsung di browser.</p></div>
+      <div>
+        <h2>Cara main</h2>
+        <details open><summary>Keyboard &amp; mouse</summary><dl class="controls"><dt><kbd>A</kbd> <kbd>D</kbd> / <kbd>←</kbd> <kbd>→</kbd></dt><dd>Bergerak</dd><dt><kbd>Spasi</kbd></dt><dd>Melompat</dd><dt>Klik kiri / kanan</dt><dd>Pukul / pasang item</dd><dt><kbd>1</kbd>–<kbd>6</kbd> · <kbd>I</kbd></dt><dd>Pilih item · buka tas</dd><dt><kbd>F5</kbd> / <kbd>F9</kbd></dt><dd>Simpan / muat di dalam game</dd><dt><kbd>Esc</kbd> · <kbd>H</kbd></dt><dd>Menu · bantuan</dd></dl></details>
+        <details><summary>Layar sentuh &amp; progres</summary><p>Gunakan tombol arah dan lompat di game. Buka Tas untuk memilih item, lalu tap tile untuk menanam atau memasang. Tahan tile untuk memukul berulang.</p><p>Progres disimpan di browser ini melalui menu game. Data tidak tersinkron ke perangkat lain; menghapus data situs juga menghapus simpanan.</p></details>
+      </div>
+    </section>
   </main>
-  <div id="toolbar">
-    <div id="status" role="status" aria-live="polite">Loading Growlander…</div>
-    <button id="fullscreen" type="button" aria-label="Enter fullscreen">Fullscreen</button>
-  </div>
+  <footer><div class="wrap"><span><strong>Growlander</strong> — ruang kecil untuk ide besarmu.</span><span>Game browser · Single-player</span></div></footer>
   <script>
     const isTouchDevice = (navigator.maxTouchPoints || 0) > 0 ||
       window.matchMedia('(pointer: coarse)').matches;
@@ -110,14 +141,34 @@
         if (status) status.textContent = text || '';
       },
       onRuntimeInitialized: () => {
-        document.getElementById('status').textContent = 'Ready';
-        document.getElementById('canvas').focus({ preventScroll: true });
+        document.getElementById('status').textContent = 'Siap dimainkan';
       }
     };
-    document.addEventListener('contextmenu', (event) => event.preventDefault());
-    document.getElementById('fullscreen').addEventListener('click', () => {
-      if (Module.requestFullscreen) Module.requestFullscreen(false, true);
-      else if (Module.canvas.requestFullscreen) Module.canvas.requestFullscreen();
+    const canvas = document.getElementById('canvas');
+    canvas.addEventListener('pointerdown', () => canvas.focus({ preventScroll: true }));
+    // SDL listens on the window. Do not send page-navigation keys into the game.
+    const gameKeys = new Set(['KeyA', 'KeyD', 'KeyW', 'KeyI', 'KeyH', 'KeyR', 'Space',
+      'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'F5', 'F9', 'Escape', 'Enter',
+      'Digit1', 'Digit2', 'Digit3', 'Digit4', 'Digit5', 'Digit6']);
+    const pageKey = (event) => {
+      if (document.activeElement !== canvas && gameKeys.has(event.code)) event.stopImmediatePropagation();
+    };
+    window.addEventListener('keydown', pageKey);
+    window.addEventListener('keypress', pageKey);
+    // Keep game keys from scrolling the page, but leave normal page navigation alone.
+    canvas.addEventListener('keydown', (event) => {
+      if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'F5', 'F9'].includes(event.code)) event.preventDefault();
+    });
+    document.getElementById('exit-fullscreen').addEventListener('click', () => document.exitFullscreen());
+    document.addEventListener('fullscreenchange', () => canvas.focus({ preventScroll: true }));
+    document.getElementById('fullscreen').addEventListener('click', async () => {
+      const frame = document.getElementById('game-frame');
+      if (!frame.requestFullscreen) {
+        document.getElementById('status').textContent = 'Layar penuh tidak didukung browser ini. Coba posisi lanskap.';
+        return;
+      }
+      try { await frame.requestFullscreen(); canvas.focus({ preventScroll: true }); }
+      catch (_) { document.getElementById('status').textContent = 'Layar penuh tidak tersedia. Game tetap bisa dimainkan di halaman ini.'; }
     });
   </script>
   {{{ SCRIPT }}}
