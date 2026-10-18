@@ -12,7 +12,7 @@ Revisi ini memakai landscape 1280 × 720, kontrol sentuh dua jari, hotbar enam s
 - Saat aplikasi kehilangan fokus atau masuk latar belakang, input dibersihkan, game dijeda, dan dunia disimpan lokal. Pertumbuhan tidak berjalan saat jeda.
 - Keyboard dan mouse desktop tetap bekerja. Tampilan menjaga rasio landscape; perangkat sangat lebar dapat memiliki letterbox.
 
-Jalur build Android ada di [`android/`](android/). Catatan singkat preview dan batas uji ada di [`docs/mobile-preview.md`](docs/mobile-preview.md); instruksi Android ada di [`docs/android-build.md`](docs/android-build.md). Tidak ada multiplayer, server, akun, ataupun izin internet yang ditambahkan. Revisi preview disimpan di repositori privat atas permintaan Louis; ini belum merupakan APK Android teruji.
+Jalur build Android ada di [`android/`](android/). Catatan singkat preview dan batas uji ada di [`docs/mobile-preview.md`](docs/mobile-preview.md); instruksi Android ada di [`docs/android-build.md`](docs/android-build.md). Tidak ada multiplayer, server, akun, ataupun izin internet yang ditambahkan. APK Android belum diverifikasi.
 
 Untuk melihat tata letak sentuh di Linux:
 
@@ -43,6 +43,19 @@ ctest --test-dir build --output-on-failure
 ```
 
 Build membuat executable `growlander`, library `growlander_core`, dan (saat `BUILD_TESTING` aktif) `growlander_tests`. Folder `assets/` disalin ke samping executable setelah build.
+
+## Build web
+
+Web build memakai Emscripten SDK **3.1.64** (sama dengan workflow Pages) dengan port SDL2 dan SDL2_ttf. Gunakan SDK tersebut, bukan paket Emscripten distro lama. Aktifkan Emscripten di shell, lalu jalankan:
+
+```sh
+emcmake cmake -S . -B build-web -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF
+cmake --build build-web --parallel
+```
+
+Hasilnya `build-web/index.html` beserta JavaScript, WebAssembly, dan data aset. Serve folder `build-web/` lewat HTTP (bukan `file://`), misalnya `python3 -m http.server 8000 --directory build-web`. Build Emscripten menampilkan preview kontrol sentuh pada perangkat sentuh; keyboard dan mouse desktop tetap tersedia. Versi GitHub Pages yang dituju: [louisarch.github.io/growlander](https://louisarch.github.io/growlander/). Browser menyimpan progres secara lokal pada browser/perangkat yang digunakan; data tidak tersinkron ke perangkat lain dan dapat hilang bila data situs dibersihkan atau sesi privat berakhir.
+
+Untuk tes integrasi SDL dalam browser, buka `/?test=smoke` atau `/?test=touch`. Hasil `PASS`/`FAIL` ditulis ke konsol dan status halaman; mode ini tidak membaca atau menulis simpanan pemain. Gunakan landscape pada ponsel. Workflow hanya mengunggah `index.html`, `index.js`, `index.wasm`, `index.data`, dan lisensi font; aktifkan Pages dengan sumber **GitHub Actions** di pengaturan repo.
 
 ## Mode otomatis
 

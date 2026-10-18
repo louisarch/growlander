@@ -7,6 +7,23 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+if(EMSCRIPTEN)
+    # SDL2 and SDL2_ttf are provided by the Emscripten ports rather than
+    # host packages. Port flags are needed while compiling SDL-using sources
+    # and again when linking the final HTML application.
+    add_compile_options(-sUSE_SDL=2 -sUSE_SDL_TTF=2)
+    add_link_options(
+        -sUSE_SDL=2
+        -sUSE_SDL_TTF=2
+        -sASYNCIFY
+        -sALLOW_MEMORY_GROWTH=1
+        -sMINIFY_HTML=0
+        -sTOTAL_STACK=1048576
+        "--preload-file=${CMAKE_CURRENT_SOURCE_DIR}/assets@/assets"
+        "--shell-file=${CMAKE_CURRENT_SOURCE_DIR}/web/shell.html"
+    )
+endif()
+
 add_library(growlander_core
     src/game.cpp
 )
@@ -21,7 +38,9 @@ target_compile_definitions(game PRIVATE
     "ASSET_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}/assets\""
 )
 
-if(WIN32)
+if(EMSCRIPTEN)
+    # SDL ports are enabled through the Emscripten compiler/linker flags above.
+elseif(WIN32)
     # SDL2 config packages are commonly supplied by vcpkg. Pass the vcpkg
     # toolchain file when configuring; Windows builds are not asserted tested.
     find_package(SDL2 CONFIG REQUIRED)
@@ -36,14 +55,23 @@ else()
     set(GROWLANDER_SDL2_TTF_TARGET PkgConfig::SDL2_TTF)
 endif()
 
-# SDL2main (where provided) must precede the SDL2 target in link order.
-if(TARGET SDL2::SDL2main)
-    target_link_libraries(game PRIVATE SDL2::SDL2main)
+if(EMSCRIPTEN)
+    set_target_properties(game PROPERTIES
+        OUTPUT_NAME index
+        SUFFIX ".html"
+        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}"
+    )
+    set_property(TARGET game APPEND PROPERTY LINK_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/web/shell.html")
+else()
+    # SDL2main (where provided) must precede the SDL2 target in link order.
+    if(TARGET SDL2::SDL2main)
+        target_link_libraries(game PRIVATE SDL2::SDL2main)
+    endif()
+    target_link_libraries(game PRIVATE
+        ${GROWLANDER_SDL2_TARGET}
+        ${GROWLANDER_SDL2_TTF_TARGET}
+    )
 endif()
-target_link_libraries(game PRIVATE
-    ${GROWLANDER_SDL2_TARGET}
-    ${GROWLANDER_SDL2_TTF_TARGET}
-)
 
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/assets")
     add_custom_command(TARGET game POST_BUILD

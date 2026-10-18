@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#000000">
+  <title>Growlander</title>
+  <style>
+    :root { color-scheme: dark; background: #000; }
+    * { box-sizing: border-box; }
+    html, body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+      background: #000;
+      touch-action: none;
+    }
+    body {
+      display: grid;
+      place-items: center;
+      min-height: 100vh;
+      min-height: 100svh;
+      font: 14px/1.4 system-ui, sans-serif;
+      color: #eee;
+      -webkit-user-select: none;
+      user-select: none;
+    }
+    #game-frame {
+      width: min(100vw, 177.7778svh);
+      aspect-ratio: 16 / 9;
+      max-height: 100vh;
+      max-height: 100svh;
+      background: #000;
+      position: relative;
+    }
+    #canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      border: 0;
+      outline: none;
+      background: #000;
+      touch-action: none;
+    }
+    #toolbar {
+      position: fixed;
+      z-index: 2;
+      inset: auto 0 max(8px, env(safe-area-inset-bottom)) 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 12px;
+      pointer-events: none;
+      text-shadow: 0 1px 3px #000;
+    }
+    #status { min-height: 1.4em; }
+    #fullscreen {
+      position: fixed;
+      top: max(4px, env(safe-area-inset-top));
+      left: 50%;
+      transform: translateX(-50%);
+      pointer-events: auto;
+      color: #fff;
+      background: #222d;
+      border: 1px solid #888;
+      border-radius: 4px;
+      padding: 3px 8px;
+      font: 12px/1.4 system-ui, sans-serif;
+      cursor: pointer;
+      touch-action: manipulation;
+    }
+    #fullscreen:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+  </style>
+</head>
+<body>
+  <main id="game-frame" aria-label="Growlander game">
+    <canvas id="canvas" width="1280" height="720" tabindex="0" oncontextmenu="event.preventDefault()"></canvas>
+  </main>
+  <div id="toolbar">
+    <div id="status" role="status" aria-live="polite">Loading Growlander…</div>
+    <button id="fullscreen" type="button" aria-label="Enter fullscreen">Fullscreen</button>
+  </div>
+  <script>
+    const isTouchDevice = (navigator.maxTouchPoints || 0) > 0 ||
+      window.matchMedia('(pointer: coarse)').matches;
+    // Deterministic SDL integration tests; neither reads nor writes player saves.
+    const testMode = new URLSearchParams(location.search).get('test');
+    const gameArguments = testMode === 'touch' ? ['--touch-test'] :
+      testMode === 'smoke' ? ['--smoke-test'] :
+      (isTouchDevice ? ['--mobile-preview'] : []);
+    var Module = {
+      canvas: document.getElementById('canvas'),
+      arguments: gameArguments,
+      print: (...args) => {
+        console.log(...args);
+        if (String(args[0]).startsWith('SDL ')) {
+          document.getElementById('status').textContent = args.join(' ');
+        }
+      },
+      printErr: (...args) => console.error(...args),
+      setStatus: (text) => {
+        const status = document.getElementById('status');
+        if (status) status.textContent = text || '';
+      },
+      onRuntimeInitialized: () => {
+        document.getElementById('status').textContent = 'Ready';
+        document.getElementById('canvas').focus({ preventScroll: true });
+      }
+    };
+    document.addEventListener('contextmenu', (event) => event.preventDefault());
+    document.getElementById('fullscreen').addEventListener('click', () => {
+      if (Module.requestFullscreen) Module.requestFullscreen(false, true);
+      else if (Module.canvas.requestFullscreen) Module.canvas.requestFullscreen();
+    });
+  </script>
+  {{{ SCRIPT }}}
+</body>
+</html>

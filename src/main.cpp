@@ -11,6 +11,10 @@
 #include <string>
 #include <vector>
 
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+#endif
+
 namespace {
 constexpr int W = 1280, H = 720, T = 40;
 struct Color {
@@ -306,15 +310,41 @@ int main(int argc, char **argv) {
     } else {
       gl::Game game;
       if (savePath.empty()) {
+#ifdef __EMSCRIPTEN__
+        savePath = "/growlander-world.glw";
+        EM_ASM({
+          try {
+            const saved = localStorage.getItem('growlander.world.v1');
+            if (saved) FS.writeFile(UTF8ToString($0), saved);
+          } catch (error) { console.warn('Penyimpanan browser tidak tersedia', error); }
+        }, savePath.c_str());
+#else
         char *pref = SDL_GetPrefPath("Growlander", "Growlander");
         if (pref) {
           savePath = std::string(pref) + "world.glw";
           SDL_free(pref);
         } else
           savePath = "growlander-world.glw";
+#endif
       }
       if (!smoke && std::filesystem::exists(savePath))
         game.load(savePath);
+      auto saveGame = [&]() {
+        if (!game.save(savePath)) return false;
+#ifdef __EMSCRIPTEN__
+        const bool persisted = EM_ASM_INT({
+          try {
+            localStorage.setItem('growlander.world.v1', FS.readFile(UTF8ToString($0), {encoding:'utf8'}));
+            return 1;
+          } catch (error) { console.warn('Simpan browser gagal', error); return 0; }
+        }, savePath.c_str());
+        if (!persisted) {
+          game.message = "Simpan browser gagal. Izinkan penyimpanan lokal.";
+          return false;
+        }
+#endif
+        return true;
+      };
       bool running = true, paused = false, bag = false, help = false,
            left = false, right = false;
       std::array<bool, SDL_NUM_SCANCODES> keys{};
@@ -350,8 +380,8 @@ int main(int argc, char **argv) {
             selected = std::clamp((y-283)/45,0,5);
           if (paused) {
             if (gl::inside(x,y,330,314,620,48)) { paused=false; clearInput(); }
-            else if (gl::inside(x,y,330,370,620,48)) game.save(savePath);
-            else if (gl::inside(x,y,330,426,620,48)) { if (game.save(savePath)) running=false; }
+            else if (gl::inside(x,y,330,370,620,48)) saveGame();
+            else if (gl::inside(x,y,330,426,620,48)) { if (saveGame()) running=false; }
             else if (gl::inside(x,y,330,482,620,48)) { game.player={}; game.player.y=20; targetSet=false; paused=false; clearInput(); }
           }
           return true;
@@ -476,7 +506,7 @@ int main(int argc, char **argv) {
             running = false;
           } else if (e.type == SDL_APP_WILLENTERBACKGROUND) {
             clearInput(); paused = true;
-            if (!smoke) game.save(savePath);
+            if (!smoke) saveGame();
           } else if (e.type == SDL_FINGERDOWN || e.type == SDL_FINGERUP || e.type == SDL_FINGERMOTION) {
             mobilePreview = true;
             // SDL_RenderSetLogicalSize already normalizes touch to the logical viewport.
@@ -490,7 +520,7 @@ int main(int argc, char **argv) {
           } else if (e.type == SDL_WINDOWEVENT &&
                      e.window.event == SDL_WINDOWEVENT_FOCUS_LOST) {
             clearInput();
-            if (!smoke) game.save(savePath);
+            if (!smoke) saveGame();
             if (!smoke)
               paused = true;
           } else if (e.type == SDL_KEYUP) {
@@ -521,7 +551,7 @@ int main(int argc, char **argv) {
               bag = false;
             }
             if (sc == SDL_SCANCODE_F5)
-              game.save(savePath);
+              saveGame();
             if (sc == SDL_SCANCODE_F9) {
               if (!game.load(savePath))
                 game.message = "Belum ada simpanan yang valid.";
@@ -533,7 +563,7 @@ int main(int argc, char **argv) {
               game.message = "Kembali ke titik awal.";
             }
             if (paused && sc == SDL_SCANCODE_RETURN) {
-              if (game.save(savePath))
+              if (saveGame())
                 running = false;
             }
           } else if (e.type == SDL_MOUSEWHEEL) {
@@ -756,8 +786,14 @@ int main(int argc, char **argv) {
         }
         SDL_RenderPresent(renderer);
         frame++;
+#ifdef __EMSCRIPTEN__
+        // Yield to browser rendering/input instead of blocking its event loop.
+        // Periodic saves also protect progress if a mobile tab is discarded.
+        if (!smoke && frame % 300 == 0) saveGame();
+        emscripten_sleep(0);
+#endif
       }
-      if (!smoke && !game.save(savePath)) {
+      if (!smoke && !saveGame()) {
         std::cerr << "Simpan gagal: " << game.message << '\n';
         result = 1;
       }
